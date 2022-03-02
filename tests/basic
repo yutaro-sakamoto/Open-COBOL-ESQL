@@ -2121,9 +2121,9 @@ $at_failed && at_fn_log_failure
 $at_traceon; }
 
 { set +x
-$as_echo "$at_srcdir/connect-disconnect.at:85: \${RUN_MODULE} prog"
+$as_echo "$at_srcdir/connect-disconnect.at:85: \${RUN_MODULE} prog 2> /dev/null"
 at_fn_check_prepare_notrace 'a ${...} parameter expansion' "connect-disconnect.at:85"
-( $at_check_trace; ${RUN_MODULE} prog
+( $at_check_trace; ${RUN_MODULE} prog 2> /dev/null
 ) >>"$at_stdout" 2>>"$at_stderr" 5>&-
 at_status=$? at_failed=false
 $at_check_filter
@@ -2326,9 +2326,9 @@ $at_failed && at_fn_log_failure
 $at_traceon; }
 
 { set +x
-$as_echo "$at_srcdir/declare.at:139: \${RUN_MODULE} prog"
+$as_echo "$at_srcdir/declare.at:139: \${RUN_MODULE} prog 2> /dev/null"
 at_fn_check_prepare_notrace 'a ${...} parameter expansion' "declare.at:139"
-( $at_check_trace; ${RUN_MODULE} prog
+( $at_check_trace; ${RUN_MODULE} prog 2> /dev/null
 ) >>"$at_stdout" 2>>"$at_stderr" 5>&-
 at_status=$? at_failed=false
 $at_check_filter
@@ -2529,9 +2529,9 @@ $at_failed && at_fn_log_failure
 $at_traceon; }
 
 { set +x
-$as_echo "$at_srcdir/open-close.at:136: \${RUN_MODULE} prog"
+$as_echo "$at_srcdir/open-close.at:136: \${RUN_MODULE} prog 2> /dev/null"
 at_fn_check_prepare_notrace 'a ${...} parameter expansion' "open-close.at:136"
-( $at_check_trace; ${RUN_MODULE} prog
+( $at_check_trace; ${RUN_MODULE} prog 2> /dev/null
 ) >>"$at_stdout" 2>>"$at_stderr" 5>&-
 at_status=$? at_failed=false
 $at_check_filter
@@ -2743,9 +2743,9 @@ $at_failed && at_fn_log_failure
 $at_traceon; }
 
 { set +x
-$as_echo "$at_srcdir/insert.at:148: \${RUN_MODULE} prog"
+$as_echo "$at_srcdir/insert.at:148: \${RUN_MODULE} prog 2> /dev/null"
 at_fn_check_prepare_notrace 'a ${...} parameter expansion' "insert.at:148"
-( $at_check_trace; ${RUN_MODULE} prog
+( $at_check_trace; ${RUN_MODULE} prog 2> /dev/null
 ) >>"$at_stdout" 2>>"$at_stderr" 5>&-
 at_status=$? at_failed=false
 $at_check_filter
@@ -2989,9 +2989,9 @@ $at_failed && at_fn_log_failure
 $at_traceon; }
 
 { set +x
-$as_echo "$at_srcdir/fetch.at:172: \${RUN_MODULE} prog"
+$as_echo "$at_srcdir/fetch.at:172: \${RUN_MODULE} prog 2> /dev/null"
 at_fn_check_prepare_notrace 'a ${...} parameter expansion' "fetch.at:172"
-( $at_check_trace; ${RUN_MODULE} prog
+( $at_check_trace; ${RUN_MODULE} prog 2> /dev/null
 ) >>"$at_stdout" 2>>"$at_stderr" 5>&-
 at_status=$? at_failed=false
 $at_check_filter
@@ -3248,9 +3248,9 @@ $at_failed && at_fn_log_failure
 $at_traceon; }
 
 { set +x
-$as_echo "$at_srcdir/delete.at:185: \${RUN_MODULE} prog"
+$as_echo "$at_srcdir/delete.at:185: \${RUN_MODULE} prog 2> /dev/null"
 at_fn_check_prepare_notrace 'a ${...} parameter expansion' "delete.at:185"
-( $at_check_trace; ${RUN_MODULE} prog
+( $at_check_trace; ${RUN_MODULE} prog 2> /dev/null
 ) >>"$at_stdout" 2>>"$at_stderr" 5>&-
 at_status=$? at_failed=false
 $at_check_filter
@@ -3514,9 +3514,9 @@ $at_failed && at_fn_log_failure
 $at_traceon; }
 
 { set +x
-$as_echo "$at_srcdir/commit-rollback.at:195: \${RUN_MODULE} prog"
+$as_echo "$at_srcdir/commit-rollback.at:195: \${RUN_MODULE} prog 2> /dev/null"
 at_fn_check_prepare_notrace 'a ${...} parameter expansion' "commit-rollback.at:195"
-( $at_check_trace; ${RUN_MODULE} prog
+( $at_check_trace; ${RUN_MODULE} prog 2> /dev/null
 ) >>"$at_stdout" 2>>"$at_stderr" 5>&-
 at_status=$? at_failed=false
 $at_check_filter
@@ -3767,9 +3767,9 @@ $at_failed && at_fn_log_failure
 $at_traceon; }
 
 { set +x
-$as_echo "$at_srcdir/select.at:177: \${RUN_MODULE} prog"
+$as_echo "$at_srcdir/select.at:177: \${RUN_MODULE} prog 2> /dev/null"
 at_fn_check_prepare_notrace 'a ${...} parameter expansion' "select.at:177"
-( $at_check_trace; ${RUN_MODULE} prog
+( $at_check_trace; ${RUN_MODULE} prog 2> /dev/null
 ) >>"$at_stdout" 2>>"$at_stderr" 5>&-
 at_status=$? at_failed=false
 $at_check_filter
@@ -3961,9 +3961,9 @@ $at_failed && at_fn_log_failure
 $at_traceon; }
 
 { set +x
-$as_echo "$at_srcdir/other-sql.at:123: cobcrun prog"
+$as_echo "$at_srcdir/other-sql.at:123: cobcrun prog 2> /dev/null"
 at_fn_check_prepare_trace "other-sql.at:123"
-( $at_check_trace; cobcrun prog
+( $at_check_trace; cobcrun prog 2> /dev/null
 ) >>"$at_stdout" 2>>"$at_stderr" 5>&-
 at_status=$? at_failed=false
 $at_check_filter
