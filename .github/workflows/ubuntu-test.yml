@@ -1,0 +1,8 @@
+name: Open-COBOL-ESQL tests on Ubuntu
+on: [push]
+jobs:
+  Open-COBOL-ESQL-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "hello world"
+      - run: ls
