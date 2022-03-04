@@ -62,14 +62,19 @@ jobs:
           cp ../.github/workflows/ubuntu-test-settings/atlocal atlocal
           cp ../.github/workflows/ubuntu-test-settings/embed_db_info.sh embed_db_info.sh
           make
-          ./basic
-          ./cobol_data
-          ./sql_data
-          ./sqlca
+          ./basic || true
+          ./cobol_data || true
+          ./sql_data || true
+          ./sqlca || true
           cd ../../
 
       - name: Archive test results
         uses: actions/upload-artifact@v2
         with:
           name: ubuntu-test-results
-          path: Open-COBOL-ESQL/tests/*.log
+          path: |
+            Open-COBOL-ESQL/tests/*.log
+            Open-COBOL-ESQL/tests/basic.dir
+            Open-COBOL-ESQL/tests/cobol_data.dir
+            Open-COBOL-ESQL/tests/sql_data.dir
+            Open-COBOL-ESQL/tests/sqlca.dir
