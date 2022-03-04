@@ -21,10 +21,11 @@ jobs:
           cd opensource-cobol/vbisam 
           ./configure --prefix=/usr/
           make
-          make install
+          sudo make install
           cd ../
           ./configure --prefix=/usr/ --with-vbisam
-          make install
+          make
+          sudo make install
           cd ../
 
       - name: Checkout Open-COBOL-ESQL
@@ -37,4 +38,4 @@ jobs:
           cd Open-COBOL-ESQL
           ./configure
           C_INCLUDE_PATH=/usr/include/postgresql/ make
-          make install
+          sudo make install
