@@ -49,13 +49,27 @@ jobs:
       - name: Install Open-COBOL-ESQL
         run: |
           cd Open-COBOL-ESQL
-          touch * # Without these instructions, the following './configure' command fails.
+          touch * # Without this instructions, the following './configure' command fails.
           ./configure
           C_INCLUDE_PATH=/usr/include/postgresql/ make
           sudo make install
           cd ../
 
-      - name: Run sample programs
+      - name: Run tests
         run: |
-          cd Open-COBOL-ESQL/.github/workflows/sample
-          sh run_sample.sh
+          cd Open-COBOL-ESQL/tests
+          make clean
+          cp ../github/workflows/ubuntu-test-settings/atlocal atlocal
+          cp ../github/workflows/ubuntu-test-settings/embed_db_info.sh embed_db_info.sh
+          make
+          ./basic
+          ./cobol_data
+          ./sql_data
+          ./sqlca
+          cd ../../
+
+      - name: Archive test results
+        uses: actions/upload-artifact@v2
+        with:
+          name: ubuntu-test-results
+          path: Open-COBOL-ESQL/tests/*.log
