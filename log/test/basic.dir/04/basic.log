@@ -1,0 +1,22 @@
+#                             -*- compilation -*-
+4. insert.at:1: testing insert statement test ...
+/insert.at:145: ocesql prog.cbl prog.cob > /dev/null
+/insert.at:146: ${EMBED_DB_INFO} prog.cob
+/insert.at:147: ${COMPILE_MODULE} prog.cob
+/insert.at:148: ${RUN_MODULE} prog 2> /dev/null
+--- -	2022-03-04 21:18:30.369445898 +0000
++++ /home/runner/work/Open-COBOL-ESQL/Open-COBOL-ESQL/Open-COBOL-ESQL/tests/basic.dir/at-groups/4/stdout	2022-03-04 21:18:30.363648841 +0000
+@@ -1,11 +1 @@
+-<log> test case 0001: success
+-<log> test case 0002: success
+-<log> test case 0003: success
+-<log> test case 0004: success
+-<log> test case 0005: success
+-<log> test case 0006: success
+-<log> test case 0007: success
+-<log> test case 0008: success
+-<log> test case 0009: success
+-<log> test case 0010: success
+ 
+/insert.at:148: exit code was 127, expected 0
+4. insert.at:1: 4. insert statement test (insert.at:1): FAILED (insert.at:148)

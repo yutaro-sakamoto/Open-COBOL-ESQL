@@ -1,0 +1,22 @@
+#                             -*- compilation -*-
+5. fetch.at:1: testing fetch statement test ...
+/fetch.at:169: ocesql prog.cbl prog.cob > /dev/null
+/fetch.at:170: ${EMBED_DB_INFO} prog.cob
+/fetch.at:171: ${COMPILE_MODULE} prog.cob
+/fetch.at:172: ${RUN_MODULE} prog 2> /dev/null
+--- -	2022-03-04 21:18:30.502491578 +0000
++++ /home/runner/work/Open-COBOL-ESQL/Open-COBOL-ESQL/Open-COBOL-ESQL/tests/basic.dir/at-groups/5/stdout	2022-03-04 21:18:30.495656958 +0000
+@@ -1,11 +1 @@
+-+0001, 北海　太郎          , +0400
+-+0002, 青森　次郎          , +0350
+-+0003, 秋田　三郎          , +0300
+-+0004, 岩手　四郎          , -0250
+-+0005, 宮城　五郎          , -0200
+-+0006, 福島　六郎          , +0150
+-+0007, 栃木　七郎          , -0100
+-+0008, 茨城　八郎          , +0050
+-+0009, 群馬　九郎          , -0200
+-+0010, 埼玉　十郎          , +0350
+ 
+/fetch.at:172: exit code was 127, expected 0
+5. fetch.at:1: 5. fetch statement test (fetch.at:1): FAILED (fetch.at:172)

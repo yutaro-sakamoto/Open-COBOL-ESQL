@@ -1,0 +1,19 @@
+#                             -*- compilation -*-
+6. delete.at:1: testing delete statement test ...
+/delete.at:182: ocesql prog.cbl prog.cob > /dev/null
+/delete.at:183: ${EMBED_DB_INFO} prog.cob
+/delete.at:184: ${COMPILE_MODULE} prog.cob
+/delete.at:185: ${RUN_MODULE} prog 2> /dev/null
+--- -	2022-03-04 21:18:30.635907581 +0000
++++ /home/runner/work/Open-COBOL-ESQL/Open-COBOL-ESQL/Open-COBOL-ESQL/tests/basic.dir/at-groups/6/stdout	2022-03-04 21:18:30.631665320 +0000
+@@ -1,8 +1 @@
+-0001 <log> success test_return_code
+-0002 <log> success test_return_code
+-0003 <log> success fetch_record +0001, 北海　太郎          , +0400
+-0004 <log> success fetch_record +0002, 青森　次郎          , +0350
+-0005 <log> success fetch_record +0003, 秋田　三郎          , +0300
+-0006 <log> success fetch_record +0004, 岩手　四郎          , -0250
+-0007 <log> success fetch_record +0005, 宮城　五郎          , -0200
+ 
+/delete.at:185: exit code was 127, expected 0
+6. delete.at:1: 6. delete statement test (delete.at:1): FAILED (delete.at:185)

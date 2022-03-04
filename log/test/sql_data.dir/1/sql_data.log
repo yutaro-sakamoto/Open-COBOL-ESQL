@@ -1,0 +1,26 @@
+#                             -*- compilation -*-
+1. sql_type.at:2: testing sql data test ...
+/sql_type.at:480: ocesql prog.cbl prog.cob > /dev/null
+/sql_type.at:481: ${EMBED_DB_INFO} prog.cob
+/sql_type.at:482: ${COMPILE_MODULE} prog.cob
+/sql_type.at:483: ${RUN_MODULE} prog 2> /dev/null
+--- -	2022-03-04 21:18:32.303565216 +0000
++++ /home/runner/work/Open-COBOL-ESQL/Open-COBOL-ESQL/Open-COBOL-ESQL/tests/sql_data.dir/at-groups/1/stdout	2022-03-04 21:18:32.299767882 +0000
+@@ -1,15 +1 @@
+-12345678901
+-12345678901
+-hello
+-2021-01-23
+-123.45
+-123
+-1234.56
+-1234.56
+-12345
+-12345
+-1234567890
+-hello
+-12:34:56
+-2021-01-23 12:34:56
+ 
+/sql_type.at:483: exit code was 127, expected 0
+1. sql_type.at:2: 1. sql data test (sql_type.at:2): FAILED (sql_type.at:483)

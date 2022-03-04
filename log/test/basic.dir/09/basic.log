@@ -1,0 +1,15 @@
+#                             -*- compilation -*-
+9. other-sql.at:1: testing other sql test ...
+/other-sql.at:120: ocesql prog.cbl prog.cob > /dev/null
+/other-sql.at:121: sh ../../embed_db_info.sh prog.cob
+/other-sql.at:122: cobc -locesql -I ../../ prog.cob
+/other-sql.at:123: cobcrun prog 2> /dev/null
+--- -	2022-03-04 21:18:31.020207309 +0000
++++ /home/runner/work/Open-COBOL-ESQL/Open-COBOL-ESQL/Open-COBOL-ESQL/tests/basic.dir/at-groups/9/stdout	2022-03-04 21:18:31.015688932 +0000
+@@ -1,4 +1 @@
+-0001 <log> success test_return_code
+-0002 <log> success test_return_code
+-0003 <log> success test_return_code
+ 
+/other-sql.at:123: exit code was 1, expected 0
+9. other-sql.at:1: 9. other sql test (other-sql.at:1): FAILED (other-sql.at:123)

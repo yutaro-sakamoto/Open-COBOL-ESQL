@@ -1,0 +1,19 @@
+#                             -*- compilation -*-
+8. select.at:1: testing select statement test ...
+/select.at:174: ocesql prog.cbl prog.cob > /dev/null
+/select.at:175: ${EMBED_DB_INFO} prog.cob
+/select.at:176: ${COMPILE_MODULE} prog.cob
+/select.at:177: ${RUN_MODULE} prog 2> /dev/null
+--- -	2022-03-04 21:18:30.903190215 +0000
++++ /home/runner/work/Open-COBOL-ESQL/Open-COBOL-ESQL/Open-COBOL-ESQL/tests/basic.dir/at-groups/8/stdout	2022-03-04 21:18:30.899681799 +0000
+@@ -1,8 +1 @@
+-0001 <log> success test_return_code
+-+0005, 宮城　五郎          , -0200
+-+0006, 福島　六郎          , +0150
+-+0007, 栃木　七郎          , -0100
+-+0008, 茨城　八郎          , +0050
+-+0009, 群馬　九郎          , -0200
+-+0010, 埼玉　十郎          , +0350
+ 
+/select.at:177: exit code was 127, expected 0
+8. select.at:1: 8. select statement test (select.at:1): FAILED (select.at:177)

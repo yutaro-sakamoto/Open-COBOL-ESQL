@@ -1,0 +1,22 @@
+#                             -*- compilation -*-
+3. alphanumeric.at:1: testing alphanumeric ...
+/alphanumeric.at:119: ocesql prog.cbl prog.cob > /dev/null
+/alphanumeric.at:120: ${EMBED_DB_INFO} prog.cob
+/alphanumeric.at:121: ${COMPILE_MODULE} prog.cob
+/alphanumeric.at:122: ${RUN_MODULE} prog 2> /dev/null
+--- -	2022-03-04 21:18:31.765206115 +0000
++++ /home/runner/work/Open-COBOL-ESQL/Open-COBOL-ESQL/Open-COBOL-ESQL/tests/cobol_data.dir/at-groups/3/stdout	2022-03-04 21:18:31.759734679 +0000
+@@ -1,11 +1 @@
+-xxxxxxxxxx
+-abcdefghij
+-1234567890
+-abc_______
+-??????????
+-{}^|!%#$()
+-Ç†Ç¢Ç§Ç¶Ç®
+-ì˙ñ{åÍaaaa
+-ÇPÇQÇRÇSÇT
+-ÉvÉçÉOÉâÉÄ
+ 
+/alphanumeric.at:122: exit code was 127, expected 0
+3. alphanumeric.at:1: 3. alphanumeric (alphanumeric.at:1): FAILED (alphanumeric.at:122)

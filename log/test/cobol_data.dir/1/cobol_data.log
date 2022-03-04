@@ -1,0 +1,42 @@
+#                             -*- compilation -*-
+1. numeric_signed_v.at:1: testing numeric_signed_v ...
+/numeric_signed_v.at:227: ocesql prog.cbl prog.cob > /dev/null
+/numeric_signed_v.at:228: ${EMBED_DB_INFO} prog.cob
+/numeric_signed_v.at:229: ${COMPILE_MODULE} prog.cob
+/numeric_signed_v.at:230: ${RUN_MODULE} prog 2> /dev/null
+--- -	2022-03-04 21:18:31.507118947 +0000
++++ /home/runner/work/Open-COBOL-ESQL/Open-COBOL-ESQL/Open-COBOL-ESQL/tests/cobol_data.dir/at-groups/1/stdout	2022-03-04 21:18:31.503718938 +0000
+@@ -1,31 +1 @@
+-+0000.00
+-+0000.01
+--0000.01
+-+0001.01
+--0001.01
+-+0010.10
+--0010.10
+-+1234.56
+-+9999.99
+--9999.99
+-+000000
+-+000100
+--000100
+-+110000
+--110000
+-+123000
+--012300
+-+100000
+-+999900
+--999900
+-+0000
+-+0001
+--0001
+-+0010
+--0010
+-+0100
+--0100
+-+1000
+-+9999
+--9999
+ 
+/numeric_signed_v.at:230: exit code was 127, expected 0
+1. numeric_signed_v.at:1: 1. numeric_signed_v (numeric_signed_v.at:1): FAILED (numeric_signed_v.at:230)

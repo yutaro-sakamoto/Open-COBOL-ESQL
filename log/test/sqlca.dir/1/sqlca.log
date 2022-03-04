@@ -1,0 +1,22 @@
+#                             -*- compilation -*-
+1. connect-disconnect.at:1: testing connect-disconnect ...
+/connect-disconnect.at:76: ocesql prog.cbl prog.cob > /dev/null
+/connect-disconnect.at:77: ${EMBED_DB_INFO} prog.cob
+/connect-disconnect.at:78: ${COMPILE_MODULE} prog.cob
+/connect-disconnect.at:79: ${RUN_MODULE} prog 2> /dev/null
+--- -	2022-03-04 21:18:32.603068731 +0000
++++ /home/runner/work/Open-COBOL-ESQL/Open-COBOL-ESQL/Open-COBOL-ESQL/tests/sqlca.dir/at-groups/1/stdout	2022-03-04 21:18:32.599786329 +0000
+@@ -1,11 +1 @@
+--000000220
+-08003
+-+000000000
+-00000
+-+000000000
+-00000
+--000000402
+-08001
+--000000220
+-08003
+ 
+/connect-disconnect.at:79: exit code was 127, expected 1
+1. connect-disconnect.at:1: 1. connect-disconnect (connect-disconnect.at:1): FAILED (connect-disconnect.at:79)

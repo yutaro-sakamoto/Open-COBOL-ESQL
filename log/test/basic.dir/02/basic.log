@@ -1,0 +1,15 @@
+#                             -*- compilation -*-
+2. declare.at:1: testing declare statement test ...
+/declare.at:136: ocesql prog.cbl prog.cob > /dev/null
+/declare.at:137: ${EMBED_DB_INFO} prog.cob
+/declare.at:138: ${COMPILE_MODULE} prog.cob
+/declare.at:139: ${RUN_MODULE} prog 2> /dev/null
+--- -	2022-03-04 21:18:30.130579311 +0000
++++ /home/runner/work/Open-COBOL-ESQL/Open-COBOL-ESQL/Open-COBOL-ESQL/tests/basic.dir/at-groups/2/stdout	2022-03-04 21:18:30.123634084 +0000
+@@ -1,4 +1 @@
+-<log> test case 0001: success
+-<log> test case 0002: success
+-<log> test case 0003: success
+ 
+/declare.at:139: exit code was 127, expected 0
+2. declare.at:1: 2. declare statement test (declare.at:1): FAILED (declare.at:139)

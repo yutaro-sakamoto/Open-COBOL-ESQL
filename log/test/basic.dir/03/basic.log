@@ -1,0 +1,14 @@
+#                             -*- compilation -*-
+3. open-close.at:1: testing open and close statement test ...
+/open-close.at:133: ocesql prog.cbl prog.cob > /dev/null
+/open-close.at:134: ${EMBED_DB_INFO} prog.cob
+/open-close.at:135: ${COMPILE_MODULE} prog.cob
+/open-close.at:136: ${RUN_MODULE} prog 2> /dev/null
+--- -	2022-03-04 21:18:30.246329528 +0000
++++ /home/runner/work/Open-COBOL-ESQL/Open-COBOL-ESQL/Open-COBOL-ESQL/tests/basic.dir/at-groups/3/stdout	2022-03-04 21:18:30.239641217 +0000
+@@ -1,3 +1 @@
+-<log> test case 0001: success
+-<log> test case 0002: success
+ 
+/open-close.at:136: exit code was 127, expected 0
+3. open-close.at:1: 3. open and close statement test (open-close.at:1): FAILED (open-close.at:136)

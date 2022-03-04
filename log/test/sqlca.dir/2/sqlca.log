@@ -1,0 +1,24 @@
+#                             -*- compilation -*-
+2. open-fetch-close.at:1: testing open-fetch-close ...
+/open-fetch-close.at:140: ocesql prog.cbl prog.cob > /dev/null
+/open-fetch-close.at:141: ${EMBED_DB_INFO} prog.cob
+/open-fetch-close.at:142: ${COMPILE_MODULE} prog.cob
+/open-fetch-close.at:143: ${RUN_MODULE} prog 2> /dev/null
+--- -	2022-03-04 21:18:32.720529053 +0000
++++ /home/runner/work/Open-COBOL-ESQL/Open-COBOL-ESQL/Open-COBOL-ESQL/tests/sqlca.dir/at-groups/2/stdout	2022-03-04 21:18:32.715793462 +0000
+@@ -1,13 +1 @@
+-+000000000
+-00000
+--000000602
+-34000
+-+000000000
+-00000
+--000000602
+-34000
+-+000000000
+-00000
+--000000602
+-34000
+ 
+/open-fetch-close.at:143: exit code was 127, expected 0
+2. open-fetch-close.at:1: 2. open-fetch-close (open-fetch-close.at:1): FAILED (open-fetch-close.at:143)

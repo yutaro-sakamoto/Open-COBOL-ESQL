@@ -1,0 +1,22 @@
+#                             -*- compilation -*-
+4. japanese.at:1: testing japanese ...
+/japanese.at:119: ocesql prog.cbl prog.cob > /dev/null
+/japanese.at:120: ${EMBED_DB_INFO} prog.cob
+/japanese.at:121: ${COMPILE_MODULE} prog.cob
+/japanese.at:122: ${RUN_MODULE} prog 2> /dev/null
+--- -	2022-03-04 21:18:31.881956194 +0000
++++ /home/runner/work/Open-COBOL-ESQL/Open-COBOL-ESQL/Open-COBOL-ESQL/tests/cobol_data.dir/at-groups/4/stdout	2022-03-04 21:18:31.875741811 +0000
+@@ -1,11 +1 @@
+-‚ ‚¢‚¤‚¦‚¨
+-‚‚‚‚ƒ‚„‚…
+-‚P‚Q‚R‚S‚T
+-ƒvƒƒOƒ‰ƒ€
+-‚`‚a‚b‚c‚d
+-I”“•
+-“ú–{ŒêŠ¿š
+-—op–{
+-QH„ƒC
+-“ú–{„ƒC
+ 
+/japanese.at:122: exit code was 127, expected 0
+4. japanese.at:1: 4. japanese (japanese.at:1): FAILED (japanese.at:122)
