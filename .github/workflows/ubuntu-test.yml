@@ -13,7 +13,7 @@ jobs:
       - name: Download Open-COBOL-ESQL-1.2
         run: |
           curl -L -o Open-COBOL-ESQL-1.2.tar.gz https://github.com/opensourcecobol/Open-COBOL-ESQL/archive/refs/tags/v1.2.tar.gz
-          tar zxvf Open-COBOL-ESQL-1.2
+          tar zxvf Open-COBOL-ESQL-1.2.tar.gz
           
       - name: Install Open-COBOL-ESQL
         run: |
