@@ -77,13 +77,13 @@ jobs:
       
       - name: Create a log directory
         run: |
-          mkdir log
-          mkdir log/test
-          mkdir log/static-analysis
+          mkdir Open-COBOL-ESQL/log
+          mkdir Open-COBOL-ESQL/log/test
+          mkdir Open-COBOL-ESQL/log/static-analysis
 
       - name: Run tests
         run: |
-          cd tests
+          cd Open-COBOL-ESQL/tests
           make clean
           cp ../.github/workflows/ubuntu-test-settings/atlocal atlocal
           cp ../.github/workflows/ubuntu-test-settings/embed_db_info.sh embed_db_info.sh
@@ -100,21 +100,22 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           force_language: c
-          output_file: static-analysis.txt
+          output_file: Open-COBOL-ESQL/log/static-analysis/static-analysis.txt
 
       - name: Archive static analysis results
         uses: actions/upload-artifact@v2
         with:
           name: static-analysis-result
-          path: log/static-analysis/static-analysis.txt
+          path: Open-COBOL-ESQL/log/static-analysis/static-analysis.txt
           
       - name: Show static analysis results
-        run: cat log/static-analysis/static-analysis.txt
+        run: cat Open-COBOL-ESQL/log/static-analysis/static-analysis.txt
 
       - name: Push log to branch 'cicd/log'
         env:
             GITHUB_RUN_ID: ${{ github.run_id }}
         run: |
+          cd Open-COBOL-ESQL/
           git remote set-url origin https://github-actions:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}
           git config --global user.name "${GITHUB_ACTOR}"
           git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
