@@ -8,15 +8,18 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential libncurses5 libncurses5-dev libgmp-dev bison flex gettext automake autoconf
-          sudo apt-get install -y libpq-dev postgresql postgresql-contrib git
-
-      - name: git clone Open-COBOL-ESQL
-        run: |
-          git clone https://github.com/opensourcecobol/Open-COBOL-ESQL
+          sudo apt-get install -y libpq-dev postgresql postgresql-contrib
+          
+      - name: Checkout Open-COBOL-ESQL
+        uses: actions/checkout@v2
+        with:
+          reppository: opensourcecobol/Open-COBOL-ESQL
+          path: Open-COBOL-ESQL
           
       - name: Install Open-COBOL-ESQL
         run: |
           cd Open-COBOL-ESQL
+          rm -rf .git
           ./configure
           C_INCLUDE_PATH=/usr/include/postgresql/ make
           sudo make install
