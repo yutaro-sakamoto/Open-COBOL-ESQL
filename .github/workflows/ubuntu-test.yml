@@ -10,6 +10,7 @@ jobs:
           sudo apt-get install -y build-essential libncurses5 libncurses5-dev libgmp-dev bison flex gettext automake autoconf
           sudo apt-get install -y libpq-dev postgresql postgresql-contrib
           sudo ln -s /usr/bin/aclocal /usr/bin/aclocal-1.13
+          sudo ln -s /usr/bin/automake /usr/bin/automake-1.13
           
       - name: Checkout opensource COBOL
         uses: actions/checkout@v2
