@@ -24,8 +24,38 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libpq-dev postgresql postgresql-contrib expect
+          sudo apt-get install -y build-essential libncurses5 libncurses5-dev libgmp-dev bison flex gettext automake autoconf
+          sudo apt-get install -y libpq-dev postgresql postgresql-contrib
 
-      - name: Connect PostgreSQL server
+      - name: Install opensource COBOL v1.5.2J
         run: |
-          PGPASSWORD=password psql -h localhost -p 5432 -U main_user -d testdb -c "SELECT * FROM foo"
+          curl -L -o opensource-cobol-1.5.2J.tar.gz https://github.com/opensourcecobol/opensource-cobol/archive/refs/tags/v1.5.2J.tar.gz
+          tar zxvf opensource-cobol-1.5.2J.tar.gz
+          cd opensource-cobol-1.5.2J/vbisam
+          ./configure --prefix=/usr/
+          make
+          sudo make install
+          cd ../
+          ./configure --prefix=/usr/ --with-vbisam
+          make
+          sudo make install
+          cd ../
+   
+      - name: Checkout Open-COBOL-ESQL
+        uses: actions/checkout@v2
+        with:
+          path: Open-COBOL-ESQL
+          
+      - name: Install Open-COBOL-ESQL
+        run: |
+          cd Open-COBOL-ESQL
+          touch * # Without these instructions, the following './configure' command fails.
+          ./configure
+          C_INCLUDE_PATH=/usr/include/postgresql/ make
+          sudo make install
+          cd ../
+
+      - name: Run sample programs
+        run: |
+          cd Open-COBOL-ESQL/.github/workflows/sample
+          sh run_sample.sh
