@@ -43,6 +43,7 @@ jobs:
           cd opensource-cobol-1.5.2J/vbisam
           ./configure --prefix=/usr/
           make
+          sudo make install
           cd ../
           ./configure --prefix=/usr/ --with-vbisam
           make
