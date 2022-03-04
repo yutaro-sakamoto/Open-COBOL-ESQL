@@ -10,31 +10,17 @@ jobs:
           sudo apt-get install -y build-essential libncurses5 libncurses5-dev libgmp-dev bison flex gettext automake autoconf
           sudo apt-get install -y libpq-dev postgresql postgresql-contrib
 
-      - name: Install opensource COBOL v1.5.2J
+      - name: Setup PostgreSQL server
         run: |
-          curl -L -o opensource-cobol-1.5.2J.tar.gz https://github.com/opensourcecobol/opensource-cobol/archive/refs/tags/v1.5.2J.tar.gz
-          tar zxvf opensource-cobol-1.5.2J.tar.gz
-          cd opensource-cobol-1.5.2J/vbisam
-          ./configure --prefix=/usr/
-          make
-          sudo make install
-          cd ../
-          ./configure --prefix=/usr/ --with-vbisam
-          make
-          sudo make install
-          cd ../
-   
-      - name: Checkout Open-COBOL-ESQL
-        uses: actions/checkout@v2
-        with:
-          path: Open-COBOL-ESQL
-          
-      - name: Install Open-COBOL-ESQL
-        run: |
-          tar zcvf Open-COBOL-ESQL.tar.gz Open-COBOL-ESQL # Without these instructions,
-          rm -rf Open-COBOL-ESQL                          # the following './configure' command fails.
-          tar zxvf Open-COBOL-ESQL.tar.gz                 # The cause is unknown.
-          cd Open-COBOL-ESQL
-          ./configure --prefix=/usr/
-          C_INCLUDE_PATH=/usr/include/postgresql/ make
-          sudo make install
+          sudo /etc/init.d/postgresql restart
+          sudo -u postgres expect -c '
+            set timeout 5
+            spawn createuser -h localhost -p 5432 -U postgres -d -l -s -P main_user
+            expect "Enter password for new role:"
+            send password
+            expect "Enter it again:"
+            send password
+            exit 0
+          '
+          sudo -u postgres createdb testdb --encoding=Shift_JIS --owner=main_user
+          PGPASSWORD=password psql -h localhost -p 5432 -U main_user -d testdb
