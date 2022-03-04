@@ -95,7 +95,22 @@ jobs:
           cp -r basic.dir cobol_data.dir sql_data.dir sqlca.dir *.log ../log/test
           cd ../
             
+      - name: cppcheck
+        uses: deep5050/cppcheck-action@main
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          force_language: c
+          exclude_check: opensource-1.5.2J
+          output_file: Open-COBOL-ESQL/log/static-analysis/static-analysis.txt
 
+      - name: Archive static analysis results
+        uses: actions/upload-artifact@v2
+        with:
+          name: static-analysis-result
+          path: Open-COBOL-ESQL/log/static-analysis/static-analysis.txt
+          
+      - name: Show static analysis results
+        run: cat Open-COBOL-ESQL/log/static-analysis/static-analysis.txt
 
       - name: Push log to branch 'cicd/log'
         env:
@@ -105,9 +120,11 @@ jobs:
           git remote set-url origin https://github-actions:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}
           git config --global user.name "${GITHUB_ACTOR}"
           git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
-          git add log/*
-          git commit -m "CI/CD log. RUN-ID ${GITHUB_RUN_ID}"; \
-          git push origin HEAD:cicd/log; 
+          if (git diff --shortstat | grep '[0-9]'); then \
+            git add log/*; \
+            git commit -m "CI/CD log. RUN-ID ${GITHUB_RUN_ID}"; \
+            git push origin HEAD:cicd/log; \
+          fi
       
       - name: Archive test results
         uses: actions/upload-artifact@v2
