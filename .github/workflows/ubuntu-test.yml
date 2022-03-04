@@ -26,4 +26,4 @@ jobs:
 
       - name: Setup PostgreSQL server
         run: |
-          PGPASSWORD=password psql -h localhost -p 5432 -U main_user -d testdb -c "SELECT * FROM foo"
+          PGPASSWORD=password psql -h db -p 5432 -U main_user -d testdb -c "SELECT * FROM foo"
