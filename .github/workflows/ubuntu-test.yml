@@ -20,7 +20,7 @@ jobs:
           sudo make install
           cd ../
           ./configure --prefix=/usr/ --with-vbisam
-          C_INCLUDE_PATH=/usr/include/postgresql/ make
+          make
           sudo make install
           cd ../
    
@@ -36,5 +36,5 @@ jobs:
           tar zxvf Open-COBOL-ESQL.tar.gz                 # The cause is unknown.
           cd Open-COBOL-ESQL
           ./configure --prefix=/usr/
-          make
+          C_INCLUDE_PATH=/usr/include/postgresql/ make
           sudo make install
