@@ -7,7 +7,8 @@ jobs:
     services:
       postgres:
         image: postgres:9.6
-        ports: ["5432:5432"]
+        ports: 
+          - 5432:5432
         env:
           POSTGRES_PASSWORD: password
           POSTGRES_USER: main_user
@@ -27,4 +28,4 @@ jobs:
 
       - name: Connect PostgreSQL server
         run: |
-          PGPASSWORD=password psql -h postgres -p 5432 -U main_user -d testdb -c "SELECT * FROM foo"
+          PGPASSWORD=password psql -h localhost -p 5432 -U main_user -d testdb -c "SELECT * FROM foo"
