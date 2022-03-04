@@ -15,11 +15,11 @@ jobs:
           curl -L -o opensource-cobol-1.5.2J.tar.gz https://github.com/opensourcecobol/opensource-cobol/archive/refs/tags/v1.5.2J.tar.gz
           tar zxvf opensource-cobol-1.5.2J.tar.gz
           cd opensource-cobol-1.5.2J/vbisam
-          ./configure --preifx=/usr/
+          ./configure --prefix=/usr/
           make
           sudo make install
           cd ../
-          ./configure --preifx=/usr/ --with-vbisam
+          ./configure --prefix=/usr/ --with-vbisam
           make
           sudo make install
           cd ../
@@ -35,6 +35,6 @@ jobs:
           rm -rf Open-COBOL-ESQL                          # the following './configure' command fails.
           tar zxvf Open-COBOL-ESQL.tar.gz                 # The cause is unknown.
           cd Open-COBOL-ESQL
-          ./configure
-          C_INCLUDE_PATH=/usr/include/postgresql/ make
+          ./configure --prefix=/usr/
+          make
           sudo make install
