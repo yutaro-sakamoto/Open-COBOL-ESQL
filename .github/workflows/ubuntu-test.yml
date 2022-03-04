@@ -1,5 +1,10 @@
 name: Open-COBOL-ESQL tests on Ubuntu
-on: [push]
+on:
+  push:
+    branches:
+      - main
+      - 'feature/**'
+      - 'develop/**'
 jobs:
   Open-COBOL-ESQL-tests:
     runs-on: ubuntu-latest
@@ -70,7 +75,12 @@ jobs:
           C_INCLUDE_PATH=/usr/include/postgresql/ make
           sudo make install
           cd ../
-          ls /usr/local/lib/libocesql.so
+      
+      - name: Create a log directory
+        run:
+          mkdir Open-COBOL-ESQL/log
+          mkdir Open-COBOL-ESQL/log/test
+          mkdir Open-COBOL-ESQL/log/static-analysis
 
       - name: Run tests
         run: |
@@ -83,24 +93,9 @@ jobs:
           ./cobol_data || true
           ./sql_data || true
           ./sqlca || true
-          cd ../../
-
-      - name: Archive test results
-        uses: actions/upload-artifact@v2
-        with:
-          name: ubuntu-test-results
-          path: |
-            Open-COBOL-ESQL/tests/*.log
-            Open-COBOL-ESQL/tests/basic.dir
-            Open-COBOL-ESQL/tests/cobol_data.dir
-            Open-COBOL-ESQL/tests/sql_data.dir
-            Open-COBOL-ESQL/tests/sqlca.dir
+          cp -r basic.dir cobol_data.dir sql_data.dir sqlca.dir *.log ../log/test
+          cd ../
             
-  static-analysis:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-        
       - name: cppcheck
         uses: deep5050/cppcheck-action@main
         with:
@@ -112,7 +107,24 @@ jobs:
         uses: actions/upload-artifact@v2
         with:
           name: static-analysis-result
-          path: static-analysis.txt
+          path: log/static-analysis/static-analysis.txt
           
-      - name: Show Result
-        run: cat static-analysis.txt
+      - name: Show static analysis results
+        run: cat log/static-analysis/static-analysis.txt
+
+      - name: Push log to branch 'cicd/log'
+        env:
+            GITHUB_RUN_ID: ${{ github.run_id }}
+        run: |
+          git remote set-url origin https://github-actions:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}
+          git config --global user.name "${GITHUB_ACTOR}"
+          git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
+          git add log/*
+          git commit -m "CI/CD log. RUN-ID ${GITHUB_RUN_ID}"; \
+          git push origin HEAD:cicd/log; 
+      
+      - name: Archive test results
+        uses: actions/upload-artifact@v2
+        with:
+          name: ubuntu-log
+          path: Open-COBOL-ESQL/log/*
