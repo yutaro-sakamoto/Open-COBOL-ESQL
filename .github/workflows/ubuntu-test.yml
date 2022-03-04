@@ -5,7 +5,7 @@ jobs:
     runs-on: ubuntu-latest
     
     services:
-      db:
+      postgres:
         image: postgres
         env:
           POSTGRES_PASSWORD: password
@@ -24,6 +24,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libpq-dev postgresql postgresql-contrib expect
 
-      - name: Setup PostgreSQL server
+      - name: Connect PostgreSQL server
         run: |
-          PGPASSWORD=password psql -h db -p 5432 -U main_user -d testdb -c "SELECT * FROM foo"
+          PGPASSWORD=password psql -h postgres -p 5432 -U main_user -d testdb -c "SELECT * FROM foo"
