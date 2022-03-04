@@ -9,36 +9,15 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential libncurses5 libncurses5-dev libgmp-dev bison flex gettext automake autoconf
           sudo apt-get install -y libpq-dev postgresql postgresql-contrib
-          sudo ln -s /usr/bin/aclocal /usr/bin/aclocal-1.13
-          sudo ln -s /usr/bin/automake /usr/bin/automake-1.13
-          
-      - name: Checkout opensource COBOL
-        uses: actions/checkout@v2
-        with:
-          repository: opensourcecobol/opensource-cobol
-          path: opensource-cobol
 
-      - name: Install opensource COBOL
+      - name: Download Open-COBOL-ESQL-1.2
         run: |
-          cd opensource-cobol/vbisam 
-          ./configure --prefix=/usr/
-          make
-          sudo make install
-          cd ../
-          ./configure --prefix=/usr/ --with-vbisam
-          make
-          sudo make install
-          cd ../
-
-      - name: Checkout Open-COBOL-ESQL
-        uses: actions/checkout@v2
-        with:
-          path: Open-COBOL-ESQL
+          curl -L -o Open-COBOL-ESQL-1.2.tar.gz https://github.com/opensourcecobol/Open-COBOL-ESQL/archive/refs/tags/v1.2.tar.gz
+          tar zxvf Open-COBOL-ESQL-1.2
           
       - name: Install Open-COBOL-ESQL
         run: |
-          cd Open-COBOL-ESQL
-          automake --add-missing
+          cd Open-COBOL-ESQL-1.2
           ./configure
           C_INCLUDE_PATH=/usr/include/postgresql/ make
           sudo make install
