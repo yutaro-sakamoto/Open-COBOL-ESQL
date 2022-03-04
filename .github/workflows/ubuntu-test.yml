@@ -3,6 +3,21 @@ on: [push]
 jobs:
   Open-COBOL-ESQL-tests:
     runs-on: ubuntu-latest
+    
+    services:
+      db:
+        image: postgres
+        env:
+          POSTGRES_PASSWORD: password
+          POSTGRES_USER: main_user
+          POSTGRES_DB: testdb
+          POSTGRES_HOST_AUTH_METHOD: 'trust'
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
       - name: Install dependencies
         run: |
@@ -11,15 +26,4 @@ jobs:
 
       - name: Setup PostgreSQL server
         run: |
-          sudo /etc/init.d/postgresql restart
-          sudo -u postgres expect -c '
-            set timeout 5
-            spawn createuser -h localhost -p 5432 -U postgres -d -l -s -P main_user
-            expect "Enter password for new role:"
-            send password
-            expect "Enter it again:"
-            send password
-            exit 0
-          '
-          sudo -u postgres createdb -E UTF8 -T template0 --lc-collate=ja_JP.UTF-8 --lc-ctype=ja_JP.UTF-8 --owner=main_user testdb
-          PGPASSWORD=password psql -h localhost -p 5432 -U main_user -d testdb
+          PGPASSWORD=password psql -h localhost -p 5432 -U main_user -d testdb -c "SELECT * FROM foo"
