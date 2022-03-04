@@ -6,7 +6,8 @@ jobs:
     
     services:
       postgres:
-        image: postgres
+        image: postgres:9.6
+        ports: ["5432:5432"]
         env:
           POSTGRES_PASSWORD: password
           POSTGRES_USER: main_user
