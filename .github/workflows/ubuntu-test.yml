@@ -9,7 +9,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y build-essential libncurses5 libncurses5-dev libgmp-dev bison flex gettext automake autoconf
           sudo apt-get install -y libpq-dev postgresql postgresql-contrib
-          
       - name: Checkout Open-COBOL-ESQL
         uses: actions/checkout@v2
         with:
@@ -18,8 +17,10 @@ jobs:
           
       - name: Install Open-COBOL-ESQL
         run: |
+          tar zcvf Open-COBOL-ESQL.tar.gz Open-COBOL-ESQL
+          rm -rf Open-COBOL-ESQL
+          tar zxvf Open-COBOL-ESQL.tar.gz
           cd Open-COBOL-ESQL
-          rm -rf .git
           ./configure
           C_INCLUDE_PATH=/usr/include/postgresql/ make
           sudo make install
