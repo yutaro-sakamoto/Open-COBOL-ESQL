@@ -102,17 +102,11 @@ jobs:
           force_language: c
           exclude_check: opensource-1.5.2J
           output_file: Open-COBOL-ESQL/log/static-analysis/static-analysis.txt
-
-      - name: Archive static analysis results
-        uses: actions/upload-artifact@v2
-        with:
-          name: static-analysis-result
-          path: Open-COBOL-ESQL/log/static-analysis/static-analysis.txt
           
       - name: Show static analysis results
         run: cat Open-COBOL-ESQL/log/static-analysis/static-analysis.txt
       
-      - name: Archive test results
+      - name: Archive Logs
         uses: actions/upload-artifact@v2
         with:
           name: ubuntu-log
