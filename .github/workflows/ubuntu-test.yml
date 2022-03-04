@@ -74,17 +74,16 @@ jobs:
           ./configure
           C_INCLUDE_PATH=/usr/include/postgresql/ make
           sudo make install
-          cd ../
       
       - name: Create a log directory
         run:
-          mkdir Open-COBOL-ESQL/log
-          mkdir Open-COBOL-ESQL/log/test
-          mkdir Open-COBOL-ESQL/log/static-analysis
+          mkdir log
+          mkdir log/test
+          mkdir log/static-analysis
 
       - name: Run tests
         run: |
-          cd Open-COBOL-ESQL/tests
+          cd tests
           make clean
           cp ../.github/workflows/ubuntu-test-settings/atlocal atlocal
           cp ../.github/workflows/ubuntu-test-settings/embed_db_info.sh embed_db_info.sh
