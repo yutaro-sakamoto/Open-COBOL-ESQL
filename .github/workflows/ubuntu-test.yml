@@ -38,6 +38,7 @@ jobs:
       - name: Install Open-COBOL-ESQL
         run: |
           cd Open-COBOL-ESQL
+          automake --add-missing
           ./configure
           C_INCLUDE_PATH=/usr/include/postgresql/ make
           sudo make install
