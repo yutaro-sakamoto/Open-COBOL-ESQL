@@ -95,21 +95,7 @@ jobs:
           cp -r basic.dir cobol_data.dir sql_data.dir sqlca.dir *.log ../log/test
           cd ../
             
-      - name: cppcheck
-        uses: deep5050/cppcheck-action@main
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          force_language: c
-          output_file: Open-COBOL-ESQL/log/static-analysis/static-analysis.txt
 
-      - name: Archive static analysis results
-        uses: actions/upload-artifact@v2
-        with:
-          name: static-analysis-result
-          path: Open-COBOL-ESQL/log/static-analysis/static-analysis.txt
-          
-      - name: Show static analysis results
-        run: cat Open-COBOL-ESQL/log/static-analysis/static-analysis.txt
 
       - name: Push log to branch 'cicd/log'
         env:
