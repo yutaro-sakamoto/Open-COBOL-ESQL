@@ -4,11 +4,37 @@ jobs:
   Open-COBOL-ESQL-tests:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-
       - name: Install dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential libncurses5 libncurses5-dev libgmp-dev bison flex gettext automake autoconf
           sudo apt-get install -y libpq-dev postgresql postgresql-contrib
+          
+      - name: Checkout opensource COBOL
+        uses: actions/checkout@v2
+        with:
+          repository: opensourcecobol/opensource-cobol
+          path: opensource-cobol
+
+      - name: Install opensource COBOL
+        run: |
+          cd opensource-cobol/vbisam 
+          ./configure --prefix=/usr/
+          make
+          make install
+          cd ../
+          ./configure --prefix=/usr/ --with-vbisam
+          make install
+          cd ../
+
+      - name: Checkout Open-COBOL-ESQL
+        uses: actions/checkout@v2
+        with:
+          path: Open-COBOL-ESQL
+          
+      - name: Install Open-COBOL-ESQL
+        run: |
+          cd Open-COBOL-ESQL
+          ./configure
+          C_INCLUDE_PATH=/usr/include/postgresql/ make
+          make install
