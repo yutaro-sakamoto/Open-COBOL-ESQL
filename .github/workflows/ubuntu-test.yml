@@ -54,6 +54,7 @@ jobs:
           C_INCLUDE_PATH=/usr/include/postgresql/ make
           sudo make install
           cd ../
+          ll /usr/local/lib/libocesql.so
 
       - name: Run tests
         run: |
