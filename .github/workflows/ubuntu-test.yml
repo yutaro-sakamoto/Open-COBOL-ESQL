@@ -20,7 +20,7 @@ jobs:
           sudo make install
           cd ../
           ./configure --prefix=/usr/ --with-vbisam
-          make
+          C_INCLUDE_PATH=/usr/include/postgresql/ make
           sudo make install
           cd ../
    
