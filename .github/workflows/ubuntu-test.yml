@@ -21,5 +21,5 @@ jobs:
             send password
             exit 0
           '
-          sudo -u postgres createdb testdb --encoding=SJIS --owner=main_user
+          sudo -u postgres createdb -E UTF8 -T template0 --lc-collate=ja_JP.UTF-8 --lc-ctype=ja_JP.UTF-8 --owner=main_user testdb
           PGPASSWORD=password psql -h localhost -p 5432 -U main_user -d testdb
