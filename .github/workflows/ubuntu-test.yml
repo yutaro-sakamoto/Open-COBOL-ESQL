@@ -76,7 +76,7 @@ jobs:
           sudo make install
       
       - name: Create a log directory
-        run:
+        run: |
           mkdir log
           mkdir log/test
           mkdir log/static-analysis
