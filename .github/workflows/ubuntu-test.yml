@@ -59,8 +59,8 @@ jobs:
         run: |
           cd Open-COBOL-ESQL/tests
           make clean
-          cp ../github/workflows/ubuntu-test-settings/atlocal atlocal
-          cp ../github/workflows/ubuntu-test-settings/embed_db_info.sh embed_db_info.sh
+          cp ../.github/workflows/ubuntu-test-settings/atlocal atlocal
+          cp ../.github/workflows/ubuntu-test-settings/embed_db_info.sh embed_db_info.sh
           make
           ./basic
           ./cobol_data
