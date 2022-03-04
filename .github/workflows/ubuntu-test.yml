@@ -36,7 +36,7 @@ jobs:
           
 
       - name: Download and Build opensource COBOL v1.5.2J
-        if: steps.opensource_cobol_cache_id != 'true'
+        if: steps.opensource_cobol_cache_id.outputs.cache-hit != 'true'
         run: |
           curl -L -o opensource-cobol-1.5.2J.tar.gz https://github.com/opensourcecobol/opensource-cobol/archive/refs/tags/v1.5.2J.tar.gz
           tar zxvf opensource-cobol-1.5.2J.tar.gz
