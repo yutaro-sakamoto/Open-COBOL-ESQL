@@ -13,6 +13,7 @@ jobs:
       - name: Checkout Open-COBOL-ESQL
         uses: actions/checkout@v2
         with:
+          reppository: opensourcecobol/Open-COBOL-ESQL
           path: Open-COBOL-ESQL
           
       - name: Install Open-COBOL-ESQL
