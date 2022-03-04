@@ -111,20 +111,6 @@ jobs:
           
       - name: Show static analysis results
         run: cat Open-COBOL-ESQL/log/static-analysis/static-analysis.txt
-
-      - name: Push log to branch 'cicd/log'
-        env:
-            GITHUB_RUN_ID: ${{ github.run_id }}
-        run: |
-          cd Open-COBOL-ESQL/
-          git remote set-url origin https://github-actions:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}
-          git config --global user.name "${GITHUB_ACTOR}"
-          git config --global user.email "${GITHUB_ACTOR}@users.noreply.github.com"
-          if (git diff --shortstat | grep '[0-9]'); then \
-            git add log/*; \
-            git commit -m "CI/CD log. RUN-ID ${GITHUB_RUN_ID}"; \
-            git push origin HEAD:cicd/log; \
-          fi
       
       - name: Archive test results
         uses: actions/upload-artifact@v2
