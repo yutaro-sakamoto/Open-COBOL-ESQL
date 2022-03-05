@@ -81,6 +81,11 @@ jobs:
           mkdir Open-COBOL-ESQL/log/test
           mkdir Open-COBOL-ESQL/log/static-analysis
 
+      - name: Temp test
+        run: |
+          cd Open-COBOL-ESQL/tmp-test
+          sh run.sh
+
       - name: Run tests
         run: |
           cd Open-COBOL-ESQL/tests
