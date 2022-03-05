@@ -5,6 +5,8 @@ on:
       - main
       - 'feature/**'
       - 'develop/**'
+  pull_request:
+    types: [opened, reopened, review_requested]
 jobs:
   Open-COBOL-ESQL-tests:
     runs-on: ubuntu-latest
