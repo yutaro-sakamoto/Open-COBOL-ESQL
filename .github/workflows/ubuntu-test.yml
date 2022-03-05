@@ -118,5 +118,5 @@ jobs:
           TESTS_FAIL=$(cat Open-COBOL-ESQL/tests/*.log | grep 'Failed tests:')
           cat Open-COBOL-ESQL/tests/*.log
           echo -----
-          echo $TEST_FAIL
+          echo "[test fail] $TESTS_FAIL"
           [ -z "$TESTS_FAIL" ]
