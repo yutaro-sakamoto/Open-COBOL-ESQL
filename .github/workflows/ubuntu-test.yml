@@ -115,4 +115,6 @@ jobs:
       
       - name: Check test results
         run: |
-          [ -z $(cat Open-COBOL-ESQL/tests/*.log | grep FAILED) ]
+          TESTS_FAIL=$(cat Open-COBOL-ESQL/tests/*.log | grep FAILED)
+          cat Open-COBOL-ESQL/tests/*.log
+          [ -z "$TESTS_FAIL" ]
