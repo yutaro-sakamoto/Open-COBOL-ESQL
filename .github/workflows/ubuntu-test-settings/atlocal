@@ -3,4 +3,4 @@ OCESQL=ocesql
 EMBED_DB_INFO="sh ../../embed_db_info.sh"
 COMPILE="${COBC} -I ../../"
 COMPILE_MODULE="${COMPILE} -m"
-RUN_MODULE="LD_PRELOAD=/usr/local/lib/libocesql.so cobcrun"
+RUN_MODULE="sh ../../cobol_runner.sh"

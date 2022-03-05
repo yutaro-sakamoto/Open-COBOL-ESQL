@@ -92,6 +92,7 @@ jobs:
           make clean
           cp ../.github/workflows/ubuntu-test-settings/atlocal atlocal
           cp ../.github/workflows/ubuntu-test-settings/embed_db_info.sh embed_db_info.sh
+          cp ../.github/workflows/ubuntu-test-settings/cobol_runner.sh cobol_runner.sh
           make
           ./basic || true
           ./cobol_data || true
