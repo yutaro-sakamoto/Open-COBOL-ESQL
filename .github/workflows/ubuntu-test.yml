@@ -112,3 +112,7 @@ jobs:
         with:
           name: ubuntu-log
           path: Open-COBOL-ESQL/log/*
+      
+      - name: Check test results
+        run: |
+          [ -z $(cat Open-COBOL-ESQL/tests/*.log | grep FAILED) ]
