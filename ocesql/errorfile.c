@@ -1,27 +1,6 @@
-/*
- * Copyright (C) 2015 Tokyo System House Co.,Ltd.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this software; see the file COPYING.  If not, write to
- * the Free Software Foundation, 51 Franklin Street, Fifth Floor
- * Boston, MA 02110-1301 USA
- */
-
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <stdarg.h>
-#include "ocesqlutil.h"
 
 #define MAXBUFFSIZE  1024
 #define ERRORMSGNUM 10
@@ -37,28 +16,7 @@ static char errormsg[ERRORMSGNUM][128] = {
 	{"E990: usage error"},
 	{"E999: unexpected error"}
 };
-static FILE *pfile;
 
-int openerrorfile(char *filename){
-	if( filename != NULL){
-		com_fopen(&pfile, filename, "a+");
-		if(pfile == NULL){
-			printf("errormsgshow: could not open %s.\n", filename);
-		}
-	}
-
-	if(pfile == NULL){
-		pfile = stdout;
-	}
-	return 1;
-}
-
-int closeerrorfile(){
-	if(pfile != NULL && pfile != stdout){
-		fclose(pfile);
-	}
-	return 1;
-}
 
 int spreadchar(char * code , char* msg, char *ret){
 	char *p ;
@@ -76,7 +34,7 @@ int spreadchar(char * code , char* msg, char *ret){
 	if(p == NULL)
 		return 0;
 
-	com_strcpy(ret, sizeof(ret), p);
+	strcpy(ret, p);
 	return 1;
 }
 
@@ -99,7 +57,34 @@ int geterrormsg(char *code , char *msg, int len){
 	 return 0;
 }
 
-int printerrormsg(char *name, int line, char * code){
+int errormsgshow( char *filename, char *msg ){
+	FILE *pfile;
+
+	if(msg == NULL){
+		printf("errormsgshow: message is empty.\n");
+		return 0;
+	}
+
+	if( filename == NULL)
+		pfile = stdout;
+	else
+		pfile = fopen(filename, "a+");
+
+	if(pfile == NULL){
+		printf("errormsgshow: could not open %s.\n", filename);
+		return 0;
+	}
+
+	fputs(msg, pfile);
+	printf("\n");
+
+	if(filename != NULL)
+		fclose(pfile);
+
+	return 1;
+}
+
+int printerrormsg(char *name, int line, char * code, char *filename){
 	char buff[MAXBUFFSIZE];
 	int ilen ;
 	char *p;
@@ -109,7 +94,7 @@ int printerrormsg(char *name, int line, char * code){
 	ilen = sizeof(buff);
 	memset(buff,0, ilen);
 
-	com_sprintf(buff,sizeof(buff), "%06d:%4s:%s", line, code, name);
+	sprintf(buff, "%06d:%4s:%s", line, code, name);
 
 	p = buff + strlen(buff);
 	ilen -= strlen(buff)+1;
@@ -119,16 +104,11 @@ int printerrormsg(char *name, int line, char * code){
 		return 0;
 	}
 
-	fputs(buff, pfile);
-	fputs("\n", pfile);
+	if( errormsgshow ( filename , buff) == 0){
+		return 0;
+	}
 
 	return 1;
 }
 
-int printmsg(char *format, ...){
-	va_list list;
-	va_start(list, format);
-	vfprintf(pfile, format, list);
-	va_end(list);
-	return 1;
-}
+

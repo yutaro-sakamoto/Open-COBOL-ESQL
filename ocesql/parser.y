@@ -1,22 +1,3 @@
-/*
- * Copyright (C) 2015 Tokyo System House Co.,Ltd.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2, or (at your option)
- * any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this software; see the file COPYING.  If not, write to
- * the Free Software Foundation, 51 Franklin Street, Fifth Floor
- * Boston, MA 02110-1301 USA
- */
-
 %defines
 %{
 
@@ -25,8 +6,7 @@
 #include <string.h>
 #include <ctype.h>
 
-#include "ocesql.h"
-#include "ocesqlutil.h"
+#include "define.h"
 
 	static void put_exec_list();
 	int cb_get_level(int level);
@@ -41,7 +21,7 @@
 
 	int yyerror(const char *msg)
 	{
-	  	printmsg("%06d:%s\n", yylineno,msg);
+	  	printf("%06d:%s\n", yylineno,msg);
 		return 0;
 	}
 
@@ -71,8 +51,9 @@
 %token<s> INTO
 %token<ld> NUMERIC
 %token END_EXEC
-%token EXECSQL
-%token EXECSQL_INCLUDE
+%token EXEC
+%token SQL
+%token INCLUDE
 %token PREPARE
 %token FROM
 %token DECLARE
@@ -80,8 +61,10 @@
 %token FOR
 %token WORKINGBEGIN
 %token WORKINGEND
-%token HOSTVARIANTBEGIN
-%token HOSTVARIANTEND
+%token PROCEDUREBEGIN
+%token _BEGIN
+%token END
+%token SECTION
 %token INCLUDE_FILE
 %token INCLUDE_SQLCA
 %token SQLCA
@@ -97,14 +80,11 @@
 %token COMP_1
 %token COMP_2
 %token COMP_3
-%token COMP_5
 %token USAGE
 %token SIGN
 %token LEADING
 %token SEPARATE
 %token AT
-%token IS
-%token ARE
 %token VALUE
 %token VARYING
 %token ALL
@@ -113,6 +93,7 @@
 %token TIMES
 %token CONST
 %token WHERECURRENTOF
+%token SQL_BYTEA
 
 %type <l> token_list declaresql includesql incfile preparesql execsql
 %type <l> opensql selectintosql select insertsql insert updatesql
@@ -122,7 +103,7 @@
 %%
 sqlstate_list:
 | sqlstate_list sqlstate;
-sqlstate: declaresql
+sqlstate:  declaresql
 | sqlvariantstates
 | incfile
 | connectsql
@@ -142,10 +123,10 @@ sqlstate: declaresql
 ;
 
 updatesql:
-EXECSQL otherdb update
+EXEC SQL otherdb update
 token_list END_EXEC
 {
-	$$ = cb_add_text_list ($3, $4);
+	$$ = cb_add_text_list ($4, $5);
 	put_exec_list();
 }
 
@@ -155,10 +136,14 @@ UPDATE {$$ = cb_text_list_add (NULL, $1);}
 
 
 disconnectsql:
-EXECSQL otherdb disconnect
+EXEC SQL otherdb disconnect
 token_list END_EXEC
 {
-	$$ = cb_add_text_list ($3, $4);
+	$$ = cb_add_text_list ($4, $5);
+	put_exec_list();
+}
+|EXEC SQL otherdb disconnect END_EXEC
+{
 	put_exec_list();
 }
 
@@ -166,10 +151,10 @@ disconnect:
 DISCONNECT {$$ = cb_text_list_add (NULL, $1);}
 
 deletesql:
-EXECSQL otherdb delete
+EXEC SQL otherdb delete
 token_list END_EXEC
 {
-	$$ = cb_add_text_list ($3, $4);
+	$$ = cb_add_text_list ($4, $5);
 	put_exec_list();
 }
 
@@ -178,10 +163,10 @@ delete:
 DELETE {$$ = cb_text_list_add (NULL, $1);}
 
 insertsql:
-EXECSQL otherdb insert
+EXEC SQL otherdb insert
 token_list END_EXEC
 {
-	$$ = cb_add_text_list ($3, $4);
+	$$ = cb_add_text_list ($4, $5);
 	put_exec_list();
 }
 
@@ -192,19 +177,19 @@ INSERT {$$ = cb_text_list_add (NULL, $1);}
 
 
 rollbacksql:
-EXECSQL otherdb ROLLBACK_WORK END_EXEC {
+EXEC SQL otherdb ROLLBACK_WORK END_EXEC {
 	put_exec_list();
 }
 
 commitsql:
-EXECSQL otherdb COMMIT_WORK END_EXEC {
+EXEC SQL otherdb COMMIT_WORK END_EXEC {
 	put_exec_list();
 }
 
 
 
 fetchsql:
-EXECSQL otherdb fetch INTO res_host_references END_EXEC {
+EXEC SQL otherdb fetch INTO res_host_references END_EXEC {
 	put_exec_list();
 }
 fetch:
@@ -221,18 +206,18 @@ host_reference {cb_res_host_list_add (res_host_reference_list, $1);}
 | res_host_references host_reference {cb_res_host_list_add (res_host_reference_list, $2);}
 
 closesql:
-EXECSQL otherdb CLOSE expr END_EXEC {
-	cb_set_cursorname($4);
+EXEC SQL otherdb CLOSE expr END_EXEC {
+	cb_set_cursorname($5);
 	put_exec_list();
 }
 
 opensql:
-EXECSQL otherdb OPEN expr END_EXEC {
-	cb_set_cursorname($4);
+EXEC SQL otherdb OPEN expr END_EXEC {
+	cb_set_cursorname($5);
 	put_exec_list();
 }
-| EXECSQL otherdb OPEN expr USING host_references END_EXEC {
-	cb_set_cursorname($4);
+| EXEC SQL otherdb OPEN expr USING host_references END_EXEC {
+	cb_set_cursorname($5);
 	put_exec_list();
 }
 
@@ -245,14 +230,13 @@ HOSTTOKEN {
 }
 
 connectsql:
-EXECSQL CONNECT otherdb END_EXEC { put_exec_list(); }
-| EXECSQL connect identified otherdb using END_EXEC { put_exec_list(); }
-| EXECSQL AT dbid connect END_EXEC { put_exec_list(); }
-| EXECSQL connect otherdb END_EXEC { put_exec_list(); }
+EXEC SQL connect identified otherdb using END_EXEC { put_exec_list(); }
+| EXEC SQL AT dbid connect END_EXEC { put_exec_list(); }
+| EXEC SQL connect otherdb END_EXEC { put_exec_list(); }
 
 othersql:
-EXECSQL otherdb OTHERFUNC token_list END_EXEC {
-	$$ = cb_add_text_list(cb_text_list_add(NULL, $3), $4);
+EXEC SQL otherdb OTHERFUNC token_list END_EXEC {
+	$$ = cb_add_text_list(cb_text_list_add(NULL, $4), $5);
 	put_exec_list();
 }
 
@@ -272,44 +256,44 @@ USING host_reference {
 }
 
 incfile:
-EXECSQL_INCLUDE INCLUDE_FILE END_EXEC{
+EXEC SQL INCLUDE INCLUDE_FILE END_EXEC{
 	put_exec_list();
 }
 
 includesql:
-EXECSQL_INCLUDE INCLUDE_SQLCA END_EXEC{
+EXEC SQL INCLUDE INCLUDE_SQLCA END_EXEC{
 	put_exec_list();
 }
 
 preparesql:
-EXECSQL otherdb PREPARE prepared_stname FROM statement_id END_EXEC {
+EXEC SQL otherdb PREPARE prepared_stname FROM statement_id END_EXEC {
 	put_exec_list();
 }
 
 execsql:
-EXECSQL otherdb EXECUTE prepared_stname USING host_references END_EXEC {
+EXEC SQL otherdb EXECUTE prepared_stname USING host_references END_EXEC {
 	put_exec_list();
 }
-| EXECSQL otherdb EXECUTE prepared_stname END_EXEC {
+| EXEC SQL otherdb EXECUTE prepared_stname END_EXEC {
 	put_exec_list();
 }
 
 selectintosql:
-EXECSQL otherdb SELECT token_list INTO res_host_references SELECTFROM token_list END_EXEC  {
-	$$ = cb_add_text_list(cb_text_list_add(NULL, $3), $4);
-	cb_add_text_list($$, cb_text_list_add(NULL, $7));
-	cb_add_text_list($$, $8);
+EXEC SQL otherdb SELECT token_list INTO res_host_references SELECTFROM token_list END_EXEC  {
+	$$ = cb_add_text_list(cb_text_list_add(NULL, $4), $5);
+	cb_add_text_list($$, cb_text_list_add(NULL, $8));
+	cb_add_text_list($$, $9);
 	put_exec_list();
 }
-| EXECSQL otherdb SELECT token_list INTO res_host_references END_EXEC  {
-	$$ = cb_add_text_list(cb_text_list_add(NULL, $3), $4);
+| EXEC SQL otherdb SELECT token_list INTO res_host_references END_EXEC  {
+	$$ = cb_add_text_list(cb_text_list_add(NULL, $4), $5);
 	put_exec_list();
 }
 
 
 declaresql:
-EXECSQL otherdb declare_for select END_EXEC { put_exec_list(); }
-| EXECSQL otherdb declare_for prepared_stname END_EXEC { put_exec_list(); }
+EXEC SQL otherdb declare_for select END_EXEC { put_exec_list(); }
+| EXEC SQL otherdb declare_for prepared_stname END_EXEC { put_exec_list(); }
 
 prepared_stname:
 TOKEN{ cb_set_prepname($1); }
@@ -348,22 +332,30 @@ sqlvariantstates: WORKINGBEGIN {
 	description_field = NULL;
 	put_exec_list();
 }
-
 sqlvariantstate_list
-WORKINGEND {
-	// check host_variable
-	put_exec_list();
-}
+workingend
 ;
+
+workingend:
+PROCEDUREBEGIN { put_exec_list(); }
+|WORKINGEND { put_exec_list(); }
+PROCEDUREBEGIN
 
 sqlvariantstate_list:
 |sqlvariantstate_list incfile
 |sqlvariantstate_list includesql
 |sqlvariantstate_list declare_for
 |sqlvariantstate_list sqlvariantstate '.'
-|sqlvariantstate_list HOSTVARIANTBEGIN { put_exec_list(); }
-|sqlvariantstate_list HOSTVARIANTEND { put_exec_list(); }
+|sqlvariantstate_list hostvariantbegin { put_exec_list(); }
+|sqlvariantstate_list hostvariantend { put_exec_list(); }
 ;
+
+hostvariantbegin:
+EXEC SQL _BEGIN DECLARE SECTION END_EXEC { }
+
+hostvariantend:
+EXEC SQL END DECLARE SECTION END_EXEC { }
+
 
 sqlvariantstate:
 NUMERIC WORD {
@@ -412,6 +404,7 @@ picture_clause
 | value_clause
 | external_clause
 | varying_clause
+| sqlbytea_clause
 ;
 
 picture_clause:
@@ -420,17 +413,13 @@ PICTURE         {  build_picture( $1,current_field); }
 
 usage_clause:
 usage
-| USAGE _is usage
+| USAGE usage
 ;
 
 usage:
 COMP_1			{ current_field->usage = USAGE_FLOAT;   }
 | COMP_2			{ current_field->usage = USAGE_DOUBLE; }
 | COMP_3			{ current_field->usage = USAGE_PACKED; }
-| COMP_5 {
-	printmsg("parse error: Open-COBOL-ESQL does not support 'COMP-5'\n");
-	exit(-1);
-}
 | WORD              { current_field->usage = USAGE_OTHER; }
 ;
 
@@ -439,7 +428,7 @@ VARYING
 {
 	if(current_field->pictype != PIC_ALPHANUMERIC &&
 		current_field->pictype != PIC_NATIONAL){
-		printmsg("parse error: %s specified the data types are not available to VARYING\n",
+		printf("parse error: %s specified the data types are not available to VARYING\n",
 		       current_field->sname);
 		exit(-1);
 	}
@@ -449,25 +438,40 @@ VARYING
 }
 ;
 
-value_clause: VALUE _is_are _all const_clause {}
+sqlbytea_clause:
+SQL_BYTEA
+{
+	if(current_field->pictype != PIC_ALPHANUMERIC){
+		printf("parse error: current_field->pictype = %d \n",current_field->pictype);
+		printf("parse error: %s specified the data types are not available to SQL-BYTEA\n",
+		       current_field->sname);
+		exit(-1);
+	}
+
+	var_sqlbytea = current_field;
+	put_exec_list();
+}
+;
+
+value_clause: VALUE _all const_clause {}
 
 const_clause: NUMERIC {}
 |WORD {}
 |CONST {}
+|const_clause CONST {}
 
 sign_clause:
-_sign_is LEADING flag_separate
+_sign LEADING flag_separate
 {
 	current_field->sign_leading = SIGNLEADING;
 }
-| _sign_is TRAILING flag_separate
+| _sign TRAILING flag_separate
 {
 
 }
 ;
 
-_sign_is:	 SIGN  {}
-| SIGN IS {}
+_sign:	 SIGN  {}
 ;
 flag_separate:
 | SEPARATE { current_field->separate = SIGN_SEPARATE; }
@@ -481,11 +485,9 @@ OCCURS NUMERIC _times
 ;
 
 external_clause:
-_is EXTERNAL {}
+EXTERNAL {}
 ;
 
-_is:		| IS;
-_is_are:	| IS | ARE;
 _all:           | ALL;
 _times:		| TIMES;
 
@@ -516,14 +518,15 @@ put_exec_list()
 	l->res_host_list = res_host_reference_list;
 	l->conn_use_other_db = conn_use_other_db;
 	l->sql_list = sql_list;
-	l->dbName = com_strdup(dbname);
-	l->prepareName = com_strdup(prepname);
-	l->cursorName = com_strdup(cursorname);
-	l->commandName = com_strdup(commandname);
+	l->dbName = strdup(dbname);
+	l->prepareName = strdup(prepname);
+	l->cursorName = strdup(cursorname);
+	l->commandName = strdup(commandname);
 	l->command_putother = command_putother;
-	l->sqlName = com_strdup(sqlname);
-	l->incfileName = com_strdup(incfilename);
+	l->sqlName = strdup(sqlname);
+	l->incfileName = strdup(incfilename);
 	l->varname = var_varying;
+	l->sqlbyteaname = var_sqlbytea;
 	l->next = NULL;
 
 	if (exec_list == NULL)
@@ -639,6 +642,9 @@ int gethostvarianttype(char *name,  int *type, int *digits, int *scale)
 		case PIC_NATIONAL_VARYING:
 			tmp_type =  HVARTYPE_JAPANESE_VARYING;
 			break;
+		case PIC_SQL_BYTEA:
+			tmp_type =  HVARTYPE_SQLBYTEA;
+			break;
 		default:
 			break;
 		}
@@ -728,7 +734,7 @@ struct cb_field * cb_build_field_tree(int level, char *name , struct cb_field *l
 
 	memset(f, 0 ,sizeof(struct cb_field));
 
-	f->sname = com_strdup(name);
+	f->sname = strdup(name);
 
 	if (lv == 78) {
 		f->level = 1;
@@ -750,7 +756,7 @@ struct cb_field * cb_build_field_tree(int level, char *name , struct cb_field *l
 		}
 	} else {
 		if(last_field == NULL){
-			printmsg("parse error: %s level should start from 01 or 66 or 77 or 88\n", name);
+			printf("parse error: %s level should start from 01 or 66 or 77 or 88\n", name);
 			exit(-1);
 			return NULL;
 		}
@@ -769,11 +775,23 @@ struct cb_field * cb_build_field_tree(int level, char *name , struct cb_field *l
 			/* lower level */
 			last_field->children = f;
 			f->parent = last_field;
+			if(last_field->sign_leading == SIGNLEADING){
+				f->sign_leading = SIGNLEADING;
+			}
+			if(last_field->separate){
+				f->separate = last_field->separate;
+			}
 		} else if (f->level == last_field->level) {
 			/* same level */
 			same_level:
 			last_field->sister = f;
 			f->parent = last_field->parent;
+			if(f->parent->sign_leading == SIGNLEADING){
+				f->sign_leading = SIGNLEADING;
+			}
+			if(f->parent->separate == SIGNLEADING){
+				f->separate = f->parent->separate;
+			}
 		} else {
 			/* upper level */
 			for (p = last_field->parent; p; p = p->parent) {
@@ -909,7 +927,7 @@ check_has_occurs_children(struct cb_field *field){
 	if(field == NULL)
 		return 0;
 
-	printmsg("CHILDR:sname=%s, level=%d, occurs=%d, children=%d",
+	printf("CHILDR:sname=%s, level=%d, occurs=%d, children=%d",
 	       field->sname, field->level, field->occurs, field->children);
 
 	if(field->occurs != 0){

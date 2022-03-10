@@ -1,22 +1,3 @@
-﻿/*
- * Copyright (C) 2015 Tokyo System House Co.,Ltd.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public License
- * as published by the Free Software Foundation; either version 2.1,
- * or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; see the file COPYING.LIB.  If
- * not, write to the Free Software Foundation, 51 Franklin Street, Fifth Floor
- * Boston, MA 02110-1301 USA
- */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdarg.h>
@@ -24,17 +5,16 @@
 #include <stdbool.h>
 #include <math.h>
 #include <malloc.h>
-#include <ctype.h>
 #include "ocdblog.h"
 #include "ocdbutil.h"
 #include "ocesql.h"
+#include "ocdb.h"
 
 typedef struct sql_var {
 	int type; // set OCDB_TYPE_*
 	int length; // size
 	int power; // power
 	void *addr; // address of variable
-	void *data; // data(for SetSQLParams)
 	char *realdata; // realdata
 } SQLVAR;
 
@@ -97,6 +77,8 @@ static void create_coboldata_lowvalue(SQLVAR *, int);
 static void create_coboldata(SQLVAR *, int, char *);
 static int get_varchar_length(char *);
 static void set_varchar_length(int, char *);
+static int get_sqlvar_byte_length(SQLVAR *);
+static int is_group_occurs_param_set(SQLVARLIST *, int);
 
 /* cursor list */
 static CURSORLIST *new_cursor_list(void);
@@ -104,6 +86,7 @@ static int add_cursor_list(int, char *, char *, int);
 static int add_cursor_list_with_prepare(int, char *, PREPARELIST *);
 static void remove_cursor_list(char *);
 
+//static CURSORLIST * add_prepared_cursor_list(int, int, int, void *);
 static void clear_cursor_list(CURSORLIST *, int);
 static void _clear_cursor_list(CURSORLIST *, int);
 static void show_cursor_list(CURSORLIST *);
@@ -117,12 +100,14 @@ static void _ocesqlExecParamsOccurs(struct sqlca_t *, int, char *, int);
 static void _ocesqlCursorDeclare(struct sqlca_t *, int, char *, char *, int);
 static void _ocesqlPreparedCursorDeclare(struct sqlca_t *, int, char *, char *);
 static int _ocesqlExecPrepare(struct sqlca_t *, int, char *, int);
+static int _ocesqlExecPrepareOccurs(struct sqlca_t *, int, char *, int);
 static void _ocesqlExecSelectIntoOne(struct sqlca_t *, int, char *, int, int);
 static void _ocesqlExecSelectIntoOccurs(struct sqlca_t *, int, char *, int, int);
 static int _ocesqlConnectMain(struct sqlca_t *, char *, char *, char *, char *);
 static int _ocesqlConnect(struct sqlca_t *, char *, int, char *, int, char *, int, char *);
 static int _ocesqlConnectInformal(struct sqlca_t *, char *, int, char *);
-static void _ocesqlDisconnect(struct sqlca_t *, int);
+static void _ocesqlDisconnect(struct sqlca_t *, int); // mada
+static void _ocesqlResultStatus(int, struct sqlca_t *);
 static void _ocesqlReleaseConnection(int, void *);
 
 static int _ocesqlResolveCONNID(struct sqlca_t *, char *, int);
@@ -138,8 +123,8 @@ sqlca_initialize(struct sqlca_t * sqlca){
  *   OCESQLConnect
  *
  * <Outline>
- *   データベース接続を試みる。成功したらコネクションIDを発行して返す
- *   return する前に st.sqlcode に値をセットすること。
+ *   $B%G!<%?%Y!<%9@\B3$r;n$_$k!#@.8y$7$?$i%3%M%/%7%g%s(BID$B$rH/9T$7$FJV$9(B
+ *   return $B$9$kA0$K(B st.sqlcode $B$KCM$r%;%C%H$9$k$3$H!#(B
  *
  * <Input>
  *   @st: SQLCA pointer
@@ -162,9 +147,9 @@ OCESQLConnect(struct sqlca_t *st, char *user, int userlen, char *passwd, int pas
  *   OCESQLIDConnect
  *
  * <Outline>
- *   データベース接続を試みる。引数に接続先情報を指定の書式でセットする。
- *   成功したらコネクションIDを発行して返す。
- *   return する前に st.sqlcode に値をセットすること。
+ *   $B%G!<%?%Y!<%9@\B3$r;n$_$k!#0z?t$K@\B3@h>pJs$r;XDj$N=q<0$G%;%C%H$9$k!#(B
+ *   $B@.8y$7$?$i%3%M%/%7%g%s(BID$B$rH/9T$7$FJV$9!#(B
+ *   return $B$9$kA0$K(B st.sqlcode $B$KCM$r%;%C%H$9$k$3$H!#(B
  *
  * <Input>
  *   @st: SQLCA pointer
@@ -184,7 +169,7 @@ OCESQLIDConnect(struct sqlca_t *st, char *atdb, int atdblen, char *user, int use
 	LOG("OCESQLIDConnect start\n");
 	atdbbuf = get_str_without_after_space(oc_strndup(atdb, atdblen));
 	if((!atdbbuf) || (*atdbbuf == '\0')){
-		OCDBSetLibErrorStatus(st,OCPG_VAR_NOT_CHAR);
+		st->sqlcode = OCDB_RES_ARGUMENT_ERROR;
 		return 1;
 	}
 
@@ -193,89 +178,6 @@ OCESQLIDConnect(struct sqlca_t *st, char *atdb, int atdblen, char *user, int use
 	free(atdbbuf);
 
 	return 0;
-}
-
-/*
- * <Function name>
- *   OCESQLConnectShort
- *
- * <Outline>
- *   データベース接続を試みる。成功したらコネクションIDを発行して返す
- *   return する前に st.sqlcode に値をセットすること。
- *
- * <Input>
- *   @st: SQLCA pointer
- *   //@name: database name
- *   //@user: user name
- *   //@passwd: password
- *
- * <Output>
- *   success : ConnectionId
- *   failure ; OCESQL_NO_CONNECTION
- */
-int
-OCESQLConnectShort(struct sqlca_t *st){
-	char	user[256];
-	int		userlen;
-	char	passwd[256];
-	int		passwdlen;
-	char	name[256];
-	int		namelen;
-
-	LOG("OCESQLConnectShort start\n");
-	(void)memset(user, 0x00, sizeof(user));
-	userlen = 0;
-	(void)memset(passwd, 0x00, sizeof(passwd));
-	passwdlen = 0;
-	(void)memset(name, 0x00, sizeof(name));
-	namelen = 0;
-	return _ocesqlConnect(st, user, userlen, passwd, passwdlen, name, namelen, NULL);
-}
-
-/*
- * <Function name>
- *   OCESQLIDConnectShort
- *
- * <Outline>
- *   データベース接続を試みる。成功したらコネクションIDを発行して返す
- *   return する前に st.sqlcode に値をセットすること。
- *
- * <Input>
- *   @st: SQLCA pointer
- *   @atdb: Connection Identifier
- *   @atdblen: length of atdb
- *   //@name: database name
- *   //@user: user name
- *   //@passwd: password
- *
- * <Output>
- *   success : ConnectionId
- *   failure ; OCESQL_NO_CONNECTION
- */
-int
-OCESQLIDConnectShort(struct sqlca_t *st, char *atdb, int atdblen){
-	char *atdbbuf;
-	LOG("OCESQLIDConnect start\n");
-	atdbbuf = get_str_without_after_space(oc_strndup(atdb, atdblen));
-	if((!atdbbuf) || (*atdbbuf == '\0')){
-		OCDBSetLibErrorStatus(st,OCPG_VAR_NOT_CHAR);
-		return 1;
-	}
-	char	user[256];
-	int		userlen;
-	char	passwd[256];
-	int		passwdlen;
-	char	name[256];
-	int		namelen;
-
-	LOG("OCESQLConnectShort start\n");
-	(void)memset(user, 0x00, sizeof(user));
-	userlen = 0;
-	(void)memset(passwd, 0x00, sizeof(passwd));
-	passwdlen = 0;
-	(void)memset(name, 0x00, sizeof(name));
-	namelen = 0;
-	return _ocesqlConnect(st, user, userlen, passwd, passwdlen, name, namelen, atdbbuf);
 }
 
 static int
@@ -289,12 +191,12 @@ _ocesqlConnect(struct sqlca_t *st, char *user, int userlen, char *passwd, int pa
 	tmppasswd = get_str_without_after_space(oc_strndup(passwd, passwdlen));
 
 	if(!tmpname){
-		dbname = com_strdup(com_getenv("OCDB_DB_NAME", NULL));
+		dbname = strdup(ocdb_getenv("OCDB_DB_NAME", NULL));
 	}else if(*tmpname == '\0'){
 		free(tmpname);
-		tmpname = com_getenv("OCDB_DB_NAME", NULL);
+		tmpname = ocdb_getenv("OCDB_DB_NAME", NULL);
 		if(tmpname)
-			dbname = com_strdup(tmpname);
+			dbname = strdup(tmpname);
 		else
 			dbname = NULL;
 	}else{
@@ -302,12 +204,12 @@ _ocesqlConnect(struct sqlca_t *st, char *user, int userlen, char *passwd, int pa
 	}
 
 	if(!tmpuser){
-		dbuser = com_strdup(com_getenv("OCDB_DB_USER", NULL));
+		dbuser = strdup(ocdb_getenv("OCDB_DB_USER", NULL));
 	}else if(*tmpuser == '\0'){
 		free(tmpuser);
-		tmpuser = com_getenv("OCDB_DB_USER", NULL);
+		tmpuser = ocdb_getenv("OCDB_DB_USER", NULL);
 		if(tmpuser)
-			dbuser = com_strdup(tmpuser);
+			dbuser = strdup(tmpuser);
 		else
 			dbuser = NULL;
 	}else{
@@ -315,12 +217,12 @@ _ocesqlConnect(struct sqlca_t *st, char *user, int userlen, char *passwd, int pa
 	}
 
 	if(!tmppasswd){
-		dbpasswd = com_strdup(com_getenv("OCDB_DB_PASS", NULL));
+		dbpasswd = strdup(ocdb_getenv("OCDB_DB_PASS", NULL));
 	}else if(*tmppasswd == '\0'){
 		free(tmppasswd);
-		tmppasswd = com_getenv("OCDB_DB_PASS", NULL);
+		tmppasswd = ocdb_getenv("OCDB_DB_PASS", NULL);
 		if(tmppasswd)
-			dbpasswd = com_strdup(tmppasswd);
+			dbpasswd = strdup(tmppasswd);
 		else
 			dbpasswd = NULL;
 	}else{
@@ -345,9 +247,9 @@ _ocesqlConnect(struct sqlca_t *st, char *user, int userlen, char *passwd, int pa
  *   OCESQLConnectInformal
  *
  * <Outline>
- *   データベース接続を試みる。引数に接続先情報を指定の書式でセットする。
- *   成功したらコネクションIDを発行して返す
- *   return する前に st.sqlcode に値をセットすること。
+ *   $B%G!<%?%Y!<%9@\B3$r;n$_$k!#0z?t$K@\B3@h>pJs$r;XDj$N=q<0$G%;%C%H$9$k!#(B
+ *   $B@.8y$7$?$i%3%M%/%7%g%s(BID$B$rH/9T$7$FJV$9(B
+ *   return $B$9$kA0$K(B st.sqlcode $B$KCM$r%;%C%H$9$k$3$H!#(B
  *
  * <Input>
  *   @st: SQLCA pointer
@@ -369,9 +271,9 @@ OCESQLConnectInformal(struct sqlca_t *st, char *conninfo, int conninfolen){
  *   OCESQLIDConnectInformal
  *
  * <Outline>
- *   データベース接続を試みる。引数に接続先情報を指定の書式でセットする。
- *   成功したら、ATDBNAMEとCONNECTION IDのセットを登録する。
- *   return する前に st.sqlcode に値をセットすること。
+ *   $B%G!<%?%Y!<%9@\B3$r;n$_$k!#0z?t$K@\B3@h>pJs$r;XDj$N=q<0$G%;%C%H$9$k!#(B
+ *   $B@.8y$7$?$i!"(BATDBNAME$B$H(BCONNECTION ID$B$N%;%C%H$rEPO?$9$k!#(B
+ *   return $B$9$kA0$K(B st.sqlcode $B$KCM$r%;%C%H$9$k$3$H!#(B
  *
  * <Input>
  *   @st: SQLCA pointer
@@ -390,7 +292,7 @@ OCESQLIDConnectInformal(struct sqlca_t *st, char *atdb, int atdblen, char *conni
 	char *atdbbuf;
 	atdbbuf = get_str_without_after_space(oc_strndup(atdb, atdblen));
 	if((!atdbbuf) || (*atdbbuf == '\0')){
-		OCDBSetLibErrorStatus(st,OCPG_VAR_NOT_CHAR);
+		st->sqlcode = OCDB_RES_ARGUMENT_ERROR;
 		return 1;
 	}
 
@@ -433,33 +335,33 @@ _ocesqlConnectInformal(struct sqlca_t *st, char *conninfo, int conninfolen, char
 	tmppasswd = get_str_without_after_space(passwd);
 
 	if(!tmpname || *tmpname == '\0'){
-		tmpname = com_getenv("OCDB_DB_NAME", NULL);
+		tmpname = ocdb_getenv("OCDB_DB_NAME", NULL);
 		if(tmpname)
-			dbname = com_strdup(tmpname);
+			dbname = strdup(tmpname);
 		else
 			dbname = NULL;
 	}else{
-		dbname = com_strdup(tmpname);
+		dbname = strdup(tmpname);
 	}
 
 	if(!tmpuser || *tmpuser == '\0'){
-		tmpuser = com_getenv("OCDB_DB_USER", NULL);
+		tmpuser = ocdb_getenv("OCDB_DB_USER", NULL);
 		if(tmpuser)
-			dbuser = com_strdup(tmpuser);
+			dbuser = strdup(tmpuser);
 		else
 			dbuser = NULL;
 	}else{
-		dbuser = com_strdup(tmpuser);
+		dbuser = strdup(tmpuser);
 	}
 
 	if(!tmppasswd || *tmppasswd == '\0'){
-		tmppasswd = com_getenv("OCDB_DB_PASS", NULL);
+		tmppasswd = ocdb_getenv("OCDB_DB_PASS", NULL);
 		if(tmppasswd)
-			dbpasswd = com_strdup(tmppasswd);
+			dbpasswd = strdup(tmppasswd);
 		else
 			dbpasswd = NULL;
 	}else{
-		dbpasswd = com_strdup(tmppasswd);
+		dbpasswd = strdup(tmppasswd);
 	}
 
 	if(atdb){
@@ -482,9 +384,9 @@ _ocesqlConnectMain(struct sqlca_t *st, char *name, char *user, char *passwd, cha
 	int autocommit;
 	int dbtype = USE_PGSQL; // aiming at a specific target
 
-	char *cencoding = com_strdup(com_getenv("OCDB_DB_CHAR", "SJIS"));
+	char *cencoding = strdup(ocdb_getenv("OCDB_DB_CHAR", "SJIS"));
 
-	char *dbname = name ? com_strdup(name) : NULL;
+	char *dbname = name ? _strdup(name) : NULL;
 	char *dbhost = NULL;
 	char *dbport = NULL;
 	char *real_dbname = NULL;
@@ -509,6 +411,7 @@ _ocesqlConnectMain(struct sqlca_t *st, char *name, char *user, char *passwd, cha
 	if(id > 0){
 		if(OCDBStatus(id) == OCDB_CONN_CONNECT_OK){
 			LOG("connection cid %s is already connected.\n", conndbname);
+			if (dbname) free(dbname);
 			return 0;
 		}else{
 			OCDBFinish(id);
@@ -520,17 +423,17 @@ _ocesqlConnectMain(struct sqlca_t *st, char *name, char *user, char *passwd, cha
 
 		tmpstr = strrchr(dbname, ':');
 		if (tmpstr != NULL){
-			dbport = com_strdup(tmpstr + 1);
+			dbport = _strdup(tmpstr + 1);
 			*tmpstr = '\0';
 		}
 		tmpstr = strrchr(dbname, '@');
 		if (tmpstr != NULL){
-			dbhost = com_strdup(tmpstr + 1);
+			dbhost = _strdup(tmpstr + 1);
 			*tmpstr = '\0';
 		}
 
 		if(strlen(dbname) > 0){
-			real_dbname = com_strdup(dbname);
+			real_dbname = _strdup(dbname);
 		}
 	}
 
@@ -539,7 +442,7 @@ _ocesqlConnectMain(struct sqlca_t *st, char *name, char *user, char *passwd, cha
 		strlen_or_null(passwd) + sizeof(" host = port = dbname = user = password =");
 	connstr = _alloc(connlen);
 
-	com_sprintf(connstr, connlen, "%s%s %s%s %s%s %s%s %s%s",
+	sprintf(connstr, "%s%s %s%s %s%s %s%s %s%s",
 			real_dbname ? "dbname=" : "", real_dbname ? real_dbname : "",
 			dbhost ? "host=" : "", dbhost ? dbhost : "",
 			dbport ? "port=" : "", dbport ? dbport : "",
@@ -558,12 +461,10 @@ _ocesqlConnectMain(struct sqlca_t *st, char *name, char *user, char *passwd, cha
 	if (cencoding) free(cencoding);
 
 	if (connectId == OCDB_CONN_FAIL_CONNECT){
-		OCDBSetLibErrorStatus(st,OCDB_CONNECT);
 		ERRLOG("connection failed. connect params is :%s\n",connstr);
 		free(connstr);
 		return 1;
 	}else if(connectId == INVALID_CONN_ID){
-		OCDBSetLibErrorStatus(st,OCDB_OUT_OF_MEMORY);
 		ERRLOG("create connect data error\n");
 		free(connstr);
 		return 1;
@@ -572,9 +473,7 @@ _ocesqlConnectMain(struct sqlca_t *st, char *name, char *user, char *passwd, cha
 	free(connstr);
 
 	OCDBExec(connectId, "BEGIN");
-	if(OCDBSetResultStatus(connectId,st) != RESULT_SUCCESS){
-		return 1;
-	}
+	st->sqlcode = OCESQL_CONN_CONNECT_OK;
 
 	LOG("connection success. connectId = %d, dbname = %s\n", connectId, conndbname);
 	return 0;
@@ -585,8 +484,8 @@ _ocesqlConnectMain(struct sqlca_t *st, char *name, char *user, char *passwd, cha
  *   OCESQLPrepare
  *
  * <Outline>
- *   SQL文を準備する
- *   実行結果(OCDB_RES_* -> ocdb.h 参照)はSQLCAに格納する
+ *   SQL$BJ8$r=`Hw$9$k(B
+ *   $B<B9T7k2L(B(OCDB_RES_* -> ocdb.h $B;2>H(B)$B$O(BSQLCA$B$K3JG<$9$k(B
  *
  * <Input>
  *   @st: SQLCA pointer
@@ -607,7 +506,7 @@ OCESQLPrepare(struct sqlca_t *st, char *sname, char *query, int querylen){
 		free(querybuf);
 	LOG("Add prepare: sname:%s, nParams:%d, query:'%s'\n",sname,nParams,pquery);
 	if(add_prepare_list(sname, pquery, nParams) ==NULL){
-		OCDBSetLibErrorStatus(st,OCDB_OUT_OF_MEMORY);
+		st->sqlcode = OCDB_RES_ALLOCATE_ERROR;
 	}
 
 	return 0;
@@ -618,7 +517,7 @@ OCESQLPrepare(struct sqlca_t *st, char *sname, char *query, int querylen){
  *   OCESQLExec
  *
  * <Outline>
- *   実処理は_ocesqlExecにて
+ *   $B<B=hM}$O(B_ocesqlExec$B$K$F(B
  *
  * <Input>
  *   @st: SQLCA pointer
@@ -633,7 +532,7 @@ OCESQLExec(struct sqlca_t *st, char *query){
 	id = _ocesqlResolveCONNID(st, OCESQL_DEFAULT_DBNAME, OCESQL_DEFAULT_DBLENG);
 	if(id == RESULT_FAILED){
 		ERRLOG("connection id is not found.\n");
-		OCDBSetLibErrorStatus(st,OCDB_NO_CONN);
+		st->sqlcode = OCDB_RES_UNDEFINED_CONNECTION;
 		return 1;
 	}
 	_ocesqlExec(st, id, query);
@@ -645,8 +544,8 @@ OCESQLExec(struct sqlca_t *st, char *query){
  *   OCESQLIDExec
  *
  * <Outline>
- *   ここでは接続ID取得のみを実施
- *   実処理は_ocesqlExecにて
+ *   $B$3$3$G$O@\B3(BID$B<hF@$N$_$r<B;\(B
+ *   $B<B=hM}$O(B_ocesqlExec$B$K$F(B
  *
  * <Input>
  *   @st: SQLCA pointer
@@ -662,7 +561,7 @@ OCESQLIDExec(struct sqlca_t *st, char *atdb, int atdblen, char *query){
 	id = _ocesqlResolveCONNID(st, atdb, atdblen);
 	if(id == RESULT_FAILED){
 		ERRLOG("connection id is not found.\n");
-		OCDBSetLibErrorStatus(st,OCDB_NO_CONN);
+		st->sqlcode = OCDB_RES_UNDEFINED_CONNECTION;
 		return 1;
 	}
 	_ocesqlExec(st, id, query);
@@ -674,9 +573,9 @@ OCESQLIDExec(struct sqlca_t *st, char *atdb, int atdblen, char *query){
  *   _ocesqlExec
  *
  * <Outline>
- *   SQLクエリの実行
- *   COMMIT, ROLLBACK の時は BEGIN も行う。
- *   実行結果(OCDB_RES_* -> ocdb.h 参照)はSQLCAに格納する
+ *   SQL$B%/%(%j$N<B9T(B
+ *   COMMIT, ROLLBACK $B$N;~$O(B BEGIN $B$b9T$&!#(B
+ *   $B<B9T7k2L(B(OCDB_RES_* -> ocdb.h $B;2>H(B)$B$O(BSQLCA$B$K3JG<$9$k(B
  *
  * <Input>
  *   @st: SQLCA pointer
@@ -689,19 +588,19 @@ _ocesqlExec(struct sqlca_t *st, int id, char *query){
 
 	// check argument
 	if(query == NULL || strlen(query) == 0){
-		OCDBSetLibErrorStatus(st,OCDB_EMPTY);
+		st->sqlcode = OCDB_RES_ARGUMENT_ERROR;
 		return;
 	}
 
 	OCDBExec(id, query);
-	if(OCDBSetResultStatus(id,st) != RESULT_SUCCESS){
+	_ocesqlResultStatus(id,st);
+	if(st->sqlcode < 0){
 		return;
 	}
 
 	if(strcmp(query, "COMMIT") == 0|| strcmp(query, "ROLLBACK") == 0){
 		clear_cursor_list(&_cursor_list, id);
 		OCDBExec(id, "BEGIN");
-		OCDBSetResultStatus(id,st);
 	}
 
 	return;
@@ -712,13 +611,13 @@ _ocesqlExec(struct sqlca_t *st, int id, char *query){
  *   OCESQLExecParams
  *
  * <Outline>
- *   実処理は_ocesqlExecParamsにて
+ *   $B<B=hM}$O(B_ocesqlExecParams$B$K$F(B
  *
  * <Input>
  *   @st: SQLCA pointer
  *   @id: ConnectionId
  *   @query: SQL query
- *   @nParams: パラメータの個数
+ *   @nParams: $B%Q%i%a!<%?$N8D?t(B
  */
 int
 OCESQLExecParams(struct sqlca_t *st, char *query, int nParams){
@@ -728,7 +627,7 @@ OCESQLExecParams(struct sqlca_t *st, char *query, int nParams){
 	id = _ocesqlResolveCONNID(st, OCESQL_DEFAULT_DBNAME, OCESQL_DEFAULT_DBLENG);
 	if(id == RESULT_FAILED){
 		ERRLOG("connection id is not found.\n");
-		OCDBSetLibErrorStatus(st,OCDB_NO_CONN);
+		st->sqlcode = OCDB_RES_UNDEFINED_CONNECTION;
 		return 1;
 	}
 	_ocesqlExecParams(st, id, query, nParams);
@@ -740,15 +639,15 @@ OCESQLExecParams(struct sqlca_t *st, char *query, int nParams){
  *   OCESQLIDExecParams
  *
  * <Outline>
- *   ここでは接続ID取得のみを実施
- *   実処理は_ocesqlExecParamsにて
+ *   $B$3$3$G$O@\B3(BID$B<hF@$N$_$r<B;\(B
+ *   $B<B=hM}$O(B_ocesqlExecParams$B$K$F(B
  *
  * <Input>
  *   @st: SQLCA pointer
  *   @atdb: Connection Identifier
  *   @atdblen: length of atdb
  *   @query: SQL query
- *   @nParams: パラメータの個数
+ *   @nParams: $B%Q%i%a!<%?$N8D?t(B
  */
 int
 OCESQLIDExecParams(struct sqlca_t *st, char *atdb, int atdblen, char *query, int nParams){
@@ -758,7 +657,7 @@ OCESQLIDExecParams(struct sqlca_t *st, char *atdb, int atdblen, char *query, int
 	LOG("id=%d\n", id);
 	if(id == RESULT_FAILED){
 		ERRLOG("connection id is not found.\n");
-		OCDBSetLibErrorStatus(st,OCDB_NO_CONN);
+		st->sqlcode = OCDB_RES_UNDEFINED_CONNECTION;
 		return 1;
 	}
 	_ocesqlExecParams(st, id, query, nParams);
@@ -770,15 +669,15 @@ OCESQLIDExecParams(struct sqlca_t *st, char *atdb, int atdblen, char *query, int
  *   _ocesqlExecParams
  *
  * <Outline>
- *   埋め込みパラメータ付きSQLクエリの実行
- *   COMMIT, ROLLBACK の時は BEGIN も行う。
- *   実行結果(OCDB_RES_* -> ocdb.h 参照)はSQLCAに格納する
+ *   $BKd$a9~$_%Q%i%a!<%?IU$-(BSQL$B%/%(%j$N<B9T(B
+ *   COMMIT, ROLLBACK $B$N;~$O(B BEGIN $B$b9T$&!#(B
+ *   $B<B9T7k2L(B(OCDB_RES_* -> ocdb.h $B;2>H(B)$B$O(BSQLCA$B$K3JG<$9$k(B
  *
  * <Input>
  *   @st: SQLCA pointer
  *   @id: ConnectionId
  *   @query: SQL query
- *   @nParams: パラメータの個数
+ *   @nParams: $B%Q%i%a!<%?$N8D?t(B
  */
 static void
 _ocesqlExecParams(struct sqlca_t *st, int id, char *query, int nParams){
@@ -790,43 +689,89 @@ _ocesqlExecParams(struct sqlca_t *st, int id, char *query, int nParams){
 
 	// check argument
 	if(query == NULL || strlen(query) == 0 || nParams == 0){
-		OCDBSetLibErrorStatus(st,OCDB_EMPTY);
+		st->sqlcode = OCDB_RES_ARGUMENT_ERROR;
 		return;
 	}
-
-	if(_var_lists_length > nParams){
-		OCDBSetLibErrorStatus(st,OCDB_TOO_MANY_ARGUMENTS);
-		return;
-	}else if(_var_lists_length < nParams){
-		OCDBSetLibErrorStatus(st,OCDB_TOO_FEW_ARGUMENTS);
-		return;
-	}
-
 	arr = NULL;
 	if((arr = (char **)malloc(sizeof(char *) * nParams)) == NULL){
-		OCDBSetLibErrorStatus(st,OCDB_OUT_OF_MEMORY);
+		st->sqlcode = OCDB_RES_ALLOCATE_ERROR;
+		return;
+	}
+
+	SQLVARLIST *p_res = _sql_res_var_lists;
+	int inpatambytea = 0;
+	int outpatambytea = 0;
+	
+	int *paramLengths;
+	int *paramFormats;
+	
+	paramLengths = NULL;
+	paramFormats = NULL;
+	if((paramLengths = (int *)malloc(sizeof(int *) * nParams)) == NULL){
+		st->sqlcode = OCDB_RES_ALLOCATE_ERROR;
+		return;
+	}
+	if((paramFormats = (int *)malloc(sizeof(int *) * nParams)) == NULL){
+		st->sqlcode = OCDB_RES_ALLOCATE_ERROR;
 		return;
 	}
 
 	// set parameters
 	for(i=0; i<_var_lists_length; i++, p=p->next){
+		//LOG("set parameter p->sv.realdata [%s]\n", p->sv.realdata);
 		arr[i] = p->sv.realdata;
+
+		paramLengths[i] = p->sv.length;
+		if(p->sv.type == OCDB_TYPE_BYTEA) {
+			paramFormats[i] = 1;
+			inpatambytea = 1;
+		} else {
+			paramFormats[i] = 0;
+		}
+
 	}
 
-	OCDBExecParams(id, query, nParams, NULL,
+	for(i=0; i<_res_var_lists_length; i++, p_res=p_res->next){
+		if(p_res->sv.type == OCDB_TYPE_BYTEA) {
+			outpatambytea = 1;
+		}
+	}
+
+	if (outpatambytea == 0) {
+		if (inpatambytea == 1) {
+			LOG("inpatambytea2 = 1 outpatambytea = 0 \n");
+			OCDBExecParams(id, query, nParams, NULL,
+				   (const char * const *)arr, (const int *)paramLengths, (const int *)paramFormats, 0);
+		} else {
+			LOG("inpatambytea2 = 0 outpatambytea = 0 \n");
+			OCDBExecParams(id, query, nParams, NULL,
 				   (const char * const *)arr, NULL, NULL, 0);
+		} 
+	} else {
+		if (inpatambytea == 1) {
+			LOG("inpatambytea2 = 1 outpatambytea = 1 \n");
+			OCDBExecParams(id, query, nParams, NULL,
+				   (const char * const *)arr, (const int *)paramLengths, (const int *)paramFormats, 1);
+		} else {
+			LOG("inpatambytea2 = 0 outpatambytea = 1 \n");
+			OCDBExecParams(id, query, nParams, NULL,
+				   (const char * const *)arr, NULL, NULL, 1);
+		}
+	}
+
+	_ocesqlResultStatus(id,st);
 	if(arr != NULL){
 		free(arr);
+		free(paramLengths);
+		free(paramFormats);
 	}
-
-	if(OCDBSetResultStatus(id,st) != RESULT_SUCCESS){
+	if(st->sqlcode < 0){
 		return;
 	}
 
 	if(strcmp(query, "COMMIT") == 0|| strcmp(query, "ROLLBACK") == 0){
 		clear_cursor_list(&_cursor_list, id);
 		OCDBExec(id, "BEGIN");
-		OCDBSetResultStatus(id,st);
 	}
 	return;
 }
@@ -836,13 +781,13 @@ _ocesqlExecParams(struct sqlca_t *st, int id, char *query, int nParams){
  *   OCESQLExecParamsOccurs
  *
  * <Outline>
- *   実処理は_ocesqlExecParamsOccursにて
+ *   $B<B=hM}$O(B_ocesqlExecParamsOccurs$B$K$F(B
  *
  * <Input>
  *   @st: SQLCA pointer
  *   @id: ConnectionId
  *   @query: SQL query
- *   @nParams: パラメータの個数
+ *   @nParams: $B%Q%i%a!<%?$N8D?t(B
  */
 int
 OCESQLExecParamsOccurs(struct sqlca_t *st, char *query, int nParams){
@@ -852,7 +797,7 @@ OCESQLExecParamsOccurs(struct sqlca_t *st, char *query, int nParams){
 	id = _ocesqlResolveCONNID(st, OCESQL_DEFAULT_DBNAME, OCESQL_DEFAULT_DBLENG);
 	if(id == RESULT_FAILED){
 		ERRLOG("connection id is not found.\n");
-		OCDBSetLibErrorStatus(st,OCDB_NO_CONN);
+		st->sqlcode = OCDB_RES_UNDEFINED_CONNECTION;
 		return 1;
 	}
 	_ocesqlExecParamsOccurs(st, id, query, nParams);
@@ -864,15 +809,15 @@ OCESQLExecParamsOccurs(struct sqlca_t *st, char *query, int nParams){
  *   OCESQLIDExecParamsOccurs
  *
  * <Outline>
- *   ここでは接続ID取得のみを実施
- *   実処理は_ocesqlExecParamsOccursにて
+ *   $B$3$3$G$O@\B3(BID$B<hF@$N$_$r<B;\(B
+ *   $B<B=hM}$O(B_ocesqlExecParamsOccurs$B$K$F(B
  *
  * <Input>
  *   @st: SQLCA pointer
  *   @atdb: Connection Identifier
  *   @atdblen: length of atdb
  *   @query: SQL query
- *   @nParams: パラメータの個数
+ *   @nParams: $B%Q%i%a!<%?$N8D?t(B
  */
 int
 OCESQLIDExecParamsOccurs(struct sqlca_t *st, char *atdb, int atdblen, char *query, int nParams){
@@ -881,7 +826,7 @@ OCESQLIDExecParamsOccurs(struct sqlca_t *st, char *atdb, int atdblen, char *quer
 	id = _ocesqlResolveCONNID(st, atdb, atdblen);
 	if(id == RESULT_FAILED){
 		ERRLOG("connection id is not found.\n");
-		OCDBSetLibErrorStatus(st,OCDB_NO_CONN);
+		st->sqlcode = OCDB_RES_UNDEFINED_CONNECTION;
 		return 1;
 	}
 	_ocesqlExecParamsOccurs(st, id, query, nParams);
@@ -893,18 +838,18 @@ OCESQLIDExecParamsOccurs(struct sqlca_t *st, char *atdb, int atdblen, char *quer
  *   _ocesqlExecParamsOccurs
  *
  * <Outline>
- *   埋め込みパラメータ付きSQLクエリの実行
- *   パラメータははSetHostTableで定義した繰り返し回数と一周のバイト数に
- *   従いセットされる
- *   対応するSQLはINSERT文,UPDATE文,DELETE文のみ。
+ *   $BKd$a9~$_%Q%i%a!<%?IU$-(BSQL$B%/%(%j$N<B9T(B
+ *   $B%Q%i%a!<%?$O$O(BSetHostTable$B$GDj5A$7$?7+$jJV$72s?t$H0l<~$N%P%$%H?t$K(B
+ *   $B=>$$%;%C%H$5$l$k(B
+ *   $BBP1~$9$k(BSQL$B$O(BINSERT$BJ8(B,UPDATE$BJ8(B,DELETE$BJ8$N$_!#(B
  *
- *   実行結果(OCDB_RES_* -> ocdb.h 参照)はSQLCAに格納する
+ *   $B<B9T7k2L(B(OCDB_RES_* -> ocdb.h $B;2>H(B)$B$O(BSQLCA$B$K3JG<$9$k(B
  *
  * <Input>
  *   @st: SQLCA pointer
  *   @id: ConnectionId
  *   @query: SQL query
- *   @nParams: パラメータの個数
+ *   @nParams: $B%Q%i%a!<%?$N8D?t(B
  */
 static void
 _ocesqlExecParamsOccurs(struct sqlca_t *st, int id, char *query, int nParams){
@@ -915,28 +860,34 @@ _ocesqlExecParamsOccurs(struct sqlca_t *st, int id, char *query, int nParams){
 	sqlca_initialize(st);
 
 	// check argument
-	if(query == NULL || strlen(query) == 0 || nParams == 0 || _occurs_iter > 500){
-		OCDBSetLibErrorStatus(st,OCDB_EMPTY);
+	if(query == NULL || strlen(query) == 0 || nParams == 0 || _occurs_iter > OCDB_OCCURS_MAX_TIMES){
+		st->sqlcode = OCDB_RES_ARGUMENT_ERROR;
 		return;
 	}
 	arr = NULL;
 	if((arr = (char **)malloc(sizeof(char *) * nParams)) == NULL){
-		OCDBSetLibErrorStatus(st,OCDB_OUT_OF_MEMORY);
+		st->sqlcode = OCDB_RES_ALLOCATE_ERROR;
 		return;
 	}
 
 	for(index=0; index<_occurs_iter; index++){
 		// set parameters
 		p = _sql_var_lists;
-		for(i=0; i<_var_lists_length; i++, p=p->next){
-			create_realdata(&p->sv, index);
-			arr[i] = p->sv.realdata;
-		}
 
-		OCDBExecParams(id, query, nParams, NULL,
-				(const char * const *)arr, NULL, NULL, 0);
-		if(OCDBSetResultStatus(id,st) != RESULT_SUCCESS){
-			break;
+		// check
+		if(is_group_occurs_param_set(_sql_var_lists, index) == RESULT_SUCCESS){
+			for(i=0; i<_var_lists_length; i++, p=p->next){
+				//LOG("set parameter p->sv.realdata [%s]\n", p->sv.realdata);
+				create_realdata(&p->sv, index);
+				arr[i] = p->sv.realdata;
+			}
+
+			OCDBExecParams(id, query, nParams, NULL,
+					(const char * const *)arr, NULL, NULL, 0);
+			_ocesqlResultStatus(id,st);
+			if(st->sqlcode < 0){
+				break;
+			}
 		}
 	}
 	if(arr != NULL){
@@ -951,7 +902,7 @@ _ocesqlExecParamsOccurs(struct sqlca_t *st, int id, char *query, int nParams){
  *   OCESQLCursorDeclare
  *
  * <Outline>
- *   実処理は_ocesqlCursorDeclareにて
+ *   $B<B=hM}$O(B_ocesqlCursorDeclare$B$K$F(B
  *
  * <Input>
  *   @st: SQLCA pointer
@@ -967,7 +918,7 @@ OCESQLCursorDeclare(struct sqlca_t *st, char *cname, char *query){
 	id = _ocesqlResolveCONNID(st, OCESQL_DEFAULT_DBNAME, OCESQL_DEFAULT_DBLENG);
 	if(id == RESULT_FAILED){
 		ERRLOG("connection id is not found.\n");
-		OCDBSetLibErrorStatus(st,OCDB_NO_CONN);
+		st->sqlcode = OCDB_RES_UNDEFINED_CONNECTION;
 		return 1;
 	}
 	_ocesqlCursorDeclare(st, id, cname, query, 0);
@@ -979,9 +930,9 @@ OCESQLCursorDeclare(struct sqlca_t *st, char *cname, char *query){
  *   OCESQLIDCursorDeclare
  *
  * <Outline>
- *   カーソル宣言
- *   CONNECTION IDの替わりに接続子を利用する。
- *   実行結果(OCDB_RES_* -> ocdb.h 参照)はSQLCAに格納する
+ *   $B%+!<%=%k@k8@(B
+ *   CONNECTION ID$B$NBX$o$j$K@\B3;R$rMxMQ$9$k!#(B
+ *   $B<B9T7k2L(B(OCDB_RES_* -> ocdb.h $B;2>H(B)$B$O(BSQLCA$B$K3JG<$9$k(B
  *
  * <Input>
  *   @st: SQLCA pointer
@@ -997,7 +948,7 @@ OCESQLIDCursorDeclare(struct sqlca_t *st, char *atdb, int atdblen, char *cname, 
 	id = _ocesqlResolveCONNID(st, atdb, atdblen);
 	if(id == RESULT_FAILED){
 		ERRLOG("connection id is not found.\n");
-		OCDBSetLibErrorStatus(st,OCDB_NO_CONN);
+		st->sqlcode = OCDB_RES_UNDEFINED_CONNECTION;
 		return 1;
 	}
 	_ocesqlCursorDeclare(st, id, cname, query, 0);
@@ -1009,7 +960,7 @@ OCESQLIDCursorDeclare(struct sqlca_t *st, char *atdb, int atdblen, char *cname, 
  *   OCESQLCursorDeclareParams
  *
  * <Outline>
- *   実処理は_ocesqlCursorDeclareParamsにて
+ *   $B<B=hM}$O(B_ocesqlCursorDeclareParams$B$K$F(B
  *
  * <Input>
  *   @st: SQLCA pointer
@@ -1025,12 +976,12 @@ OCESQLCursorDeclareParams(struct sqlca_t *st, char *cname, char *query, int nPar
 	id = _ocesqlResolveCONNID(st, OCESQL_DEFAULT_DBNAME, OCESQL_DEFAULT_DBLENG);
 	if(id == RESULT_FAILED){
 		ERRLOG("connection id is not found.\n");
-		OCDBSetLibErrorStatus(st,OCDB_NO_CONN);
+		st->sqlcode = OCDB_RES_UNDEFINED_CONNECTION;
 		return 1;
 	}
 	// check argument
 	if(nParams == 0){
-		OCDBSetLibErrorStatus(st,OCDB_EMPTY);
+		st->sqlcode = OCDB_RES_ARGUMENT_ERROR;
 		return 1;
 	}
 
@@ -1043,15 +994,15 @@ OCESQLCursorDeclareParams(struct sqlca_t *st, char *cname, char *query, int nPar
  *   OCESQLCursorDeclareParams
  *
  * <Outline>
- *   ここでは接続ID取得のみを実施
- *   実処理は_ocesqlCursorDeclareParamsにて
+ *   $B$3$3$G$O@\B3(BID$B<hF@$N$_$r<B;\(B
+ *   $B<B=hM}$O(B_ocesqlCursorDeclareParams$B$K$F(B
  *
  * <Input>
  *   @st: SQLCA pointer
  *   @atdb: Connection Identifier
  *   @atdblen: length of atdb
  *   @query: SQL query
- *   @nParams: パラメータの個数
+ *   @nParams: $B%Q%i%a!<%?$N8D?t(B
  */
 int
 OCESQLIDCursorDeclareParams(struct sqlca_t *st, char *atdb, int atdblen, char *cname, char *query, int nParams){
@@ -1060,12 +1011,12 @@ OCESQLIDCursorDeclareParams(struct sqlca_t *st, char *atdb, int atdblen, char *c
 	id = _ocesqlResolveCONNID(st, atdb, atdblen);
 	if(id == RESULT_FAILED){
 		ERRLOG("connection id is not found.\n");
-		OCDBSetLibErrorStatus(st,OCDB_NO_CONN);
+		st->sqlcode = OCDB_RES_UNDEFINED_CONNECTION;
 		return 1;
 	}
 	// check argument
 	if(nParams == 0){
-		OCDBSetLibErrorStatus(st,OCDB_EMPTY);
+		st->sqlcode = OCDB_RES_ARGUMENT_ERROR;
 		return 1;
 	}
 	_ocesqlCursorDeclare(st, id, cname, query, nParams);
@@ -1077,15 +1028,15 @@ OCESQLIDCursorDeclareParams(struct sqlca_t *st, char *atdb, int atdblen, char *c
  *   _ocesqlCursorDeclareParams
  *
  * <Outline>
- *   埋め込みパラメータ付きカーソル宣言
- *   実行結果(OCDB_RES_* -> ocdb.h 参照)はSQLCAに格納する
+ *   $BKd$a9~$_%Q%i%a!<%?IU$-%+!<%=%k@k8@(B
+ *   $B<B9T7k2L(B(OCDB_RES_* -> ocdb.h $B;2>H(B)$B$O(BSQLCA$B$K3JG<$9$k(B
  *
  * <Input>
  *   @st: SQLCA pointer
  *   @id: ConnectionId
  *   @cname: Cursor name
  *   @query: SQL query
- *   @nParams: パラメータの個数
+ *   @nParams: $B%Q%i%a!<%?$N8D?t(B
  */
 static void
 _ocesqlCursorDeclare(struct sqlca_t *st, int id, char *cname, char *query, int nParams){
@@ -1096,16 +1047,16 @@ _ocesqlCursorDeclare(struct sqlca_t *st, int id, char *cname, char *query, int n
 	// check argument
 	if(cname == NULL || strlen(cname) == 0 ||
 	   query == NULL || strlen(query) == 0 ){
-		OCDBSetLibErrorStatus(st,OCDB_EMPTY);
+		st->sqlcode = OCDB_RES_ARGUMENT_ERROR;
 		return;
 	}
 
 	res = add_cursor_list(id, cname, query, nParams);
 
 	if(res == RESULT_FAILED){
-		OCDBSetLibErrorStatus(st,OCDB_WARNING_PORTAL_EXISTS);
+		st->sqlcode = OCDB_RES_OVERWRITE_OPENED_CURSOR;
 	}else if(res == RESULT_ERROR){
-		OCDBSetLibErrorStatus(st,OCDB_OUT_OF_MEMORY);
+		st->sqlcode = OCDB_RES_ALLOCATE_ERROR;
 	}
 	return;
 }
@@ -1115,7 +1066,7 @@ _ocesqlCursorDeclare(struct sqlca_t *st, int id, char *cname, char *query, int n
  *   OCESQLPreparedCursorDeclare
  *
  * <Outline>
- *   実処理は_ocesqlPreparedCursorDeclareにて
+ *   $B<B=hM}$O(B_ocesqlPreparedCursorDeclare$B$K$F(B
  *
  * <Input>
  *   @st: SQLCA pointer
@@ -1130,7 +1081,7 @@ OCESQLPreparedCursorDeclare(struct sqlca_t *st, char *cname, char *sname){
 	id = _ocesqlResolveCONNID(st, OCESQL_DEFAULT_DBNAME, OCESQL_DEFAULT_DBLENG);
 	if(id == RESULT_FAILED){
 		ERRLOG("connection id is not found.\n");
-		OCDBSetLibErrorStatus(st,OCDB_NO_CONN);
+		st->sqlcode = OCDB_RES_UNDEFINED_CONNECTION;
 		return 1;
 	}
 	_ocesqlPreparedCursorDeclare(st, id, cname, sname);
@@ -1143,7 +1094,7 @@ OCESQLPreparedCursorDeclare(struct sqlca_t *st, char *cname, char *sname){
  *   OCESQLIDPreparedCursorDeclare
  *
  * <Outline>
- *   実処理は_ocesqlPreparedCursorDeclareにて
+ *   $B<B=hM}$O(B_ocesqlPreparedCursorDeclare$B$K$F(B
  *
  * <Input>
  *   @st: SQLCA pointer
@@ -1159,7 +1110,7 @@ OCESQLIDPreparedCursorDeclare(struct sqlca_t *st, char *atdb, int atdblen, char 
 	id = _ocesqlResolveCONNID(st, atdb, atdblen);
 	if(id == RESULT_FAILED){
 		ERRLOG("connection id is not found.\n");
-		OCDBSetLibErrorStatus(st,OCDB_NO_CONN);
+		st->sqlcode = OCDB_RES_UNDEFINED_CONNECTION;
 		return 1;
 	}
 	_ocesqlPreparedCursorDeclare(st, id, cname, sname);
@@ -1171,9 +1122,9 @@ OCESQLIDPreparedCursorDeclare(struct sqlca_t *st, char *atdb, int atdblen, char 
  *   _ocesqlPreparedCursorDeclare
  *
  * <Outline>
- *   埋め込みパラメータ付きカーソル宣言
- *   SQL文にはOCESQLPrepareにて定義された識別子を使う。
- *   実行結果(OCDB_RES_* -> ocdb.h 参照)はSQLCAに格納する
+ *   $BKd$a9~$_%Q%i%a!<%?IU$-%+!<%=%k@k8@(B
+ *   SQL$BJ8$K$O(BOCESQLPrepare$B$K$FDj5A$5$l$?<1JL;R$r;H$&!#(B
+ *   $B<B9T7k2L(B(OCDB_RES_* -> ocdb.h $B;2>H(B)$B$O(BSQLCA$B$K3JG<$9$k(B
  *
  * <Input>
  *   @st: SQLCA pointer
@@ -1191,7 +1142,7 @@ _ocesqlPreparedCursorDeclare(struct sqlca_t *st, int id, char *cname, char *snam
 	// check argument
 	if(cname == NULL || strlen(cname) == 0 ||
 	   sname == NULL || strlen(sname) == 0 ){
-		OCDBSetLibErrorStatus(st,OCDB_EMPTY);
+		st->sqlcode = OCDB_RES_ARGUMENT_ERROR;
 		return;
 	}
 
@@ -1201,14 +1152,14 @@ _ocesqlPreparedCursorDeclare(struct sqlca_t *st, int id, char *cname, char *snam
 	prepare = get_prepare_from_list(sname);
 	if(prepare == NULL){
 		ERRLOG("prepare %s not registered.\n", sname);
-		OCDBSetLibErrorStatus(st,OCDB_INVALID_STMT);
+					st->sqlcode = OCDB_RES_UNDEFINED_PREPARE;
 		return;
 	}
 
 	if((res = add_cursor_list_with_prepare(id, cname, prepare)) == RESULT_FAILED){
-		OCDBSetLibErrorStatus(st,OCDB_WARNING_PORTAL_EXISTS);
+		st->sqlcode = OCDB_RES_OVERWRITE_OPENED_CURSOR;
 	}else if((res = add_cursor_list_with_prepare(id, cname, prepare)) == RESULT_ERROR){
-		OCDBSetLibErrorStatus(st,OCDB_OUT_OF_MEMORY);
+		st->sqlcode = OCDB_RES_ALLOCATE_ERROR;
 	}
 }
 
@@ -1217,13 +1168,13 @@ _ocesqlPreparedCursorDeclare(struct sqlca_t *st, int id, char *cname, char *snam
  *   OCESQLExecPrepare
  *
  * <Outline>
- *   OCESQLPrepare文で準備されたSQLを実行する。
- *   実行結果(OCDB_RES_* -> ocdb.h 参照)はSQLCAに格納する
+ *   OCESQLPrepare$BJ8$G=`Hw$5$l$?(BSQL$B$r<B9T$9$k!#(B
+ *   $B<B9T7k2L(B(OCDB_RES_* -> ocdb.h $B;2>H(B)$B$O(BSQLCA$B$K3JG<$9$k(B
  *
  * <Input>
  *   @st: SQLCA pointer
  *   @sname: Prepared SQLID
- *   @nParams: パラメータの個数
+ *   @nParams: $B%Q%i%a!<%?$N8D?t(B
  */
 
 int
@@ -1233,7 +1184,7 @@ OCESQLExecPrepare(struct sqlca_t *st, char *sname, int nParams){
 	id = _ocesqlResolveCONNID(st, OCESQL_DEFAULT_DBNAME, strlen(OCESQL_DEFAULT_DBNAME));
 	if(id == RESULT_FAILED){
 		ERRLOG("connection id is not found.\n");
-		OCDBSetLibErrorStatus(st,OCDB_NO_CONN);
+		st->sqlcode = OCDB_RES_UNDEFINED_CONNECTION;
 		return 1;
 	}
 
@@ -1245,15 +1196,15 @@ OCESQLExecPrepare(struct sqlca_t *st, char *sname, int nParams){
  *   OCESQLIDExecPrepare
  *
  * <Outline>
- *   OCESQLPrepare文で準備されたSQLを実行する。
- *   実行結果(OCDB_RES_* -> ocdb.h 参照)はSQLCAに格納する
+ *   OCESQLPrepare$BJ8$G=`Hw$5$l$?(BSQL$B$r<B9T$9$k!#(B
+ *   $B<B9T7k2L(B(OCDB_RES_* -> ocdb.h $B;2>H(B)$B$O(BSQLCA$B$K3JG<$9$k(B
  *
  * <Input>
  *   @st: SQLCA pointer
  *   @atdb: Connection Identifier
  *   @atdblen: length of atdb
  *   @sname: Prepared SQLID
- *   @nParams: パラメータの個数
+ *   @nParams: $B%Q%i%a!<%?$N8D?t(B
  */
 int
 OCESQLIDExecPrepare(struct sqlca_t *st, char *atdb, int atdblen, char *sname, int nParams){
@@ -1262,7 +1213,7 @@ OCESQLIDExecPrepare(struct sqlca_t *st, char *atdb, int atdblen, char *sname, in
 	id = _ocesqlResolveCONNID(st, atdb, atdblen);
 	if(id == RESULT_FAILED){
 		ERRLOG("connection id is not found.\n");
-		OCDBSetLibErrorStatus(st,OCDB_NO_CONN);
+		st->sqlcode = OCDB_RES_UNDEFINED_CONNECTION;
 		return 1;
 	}
 
@@ -1284,7 +1235,7 @@ _ocesqlExecPrepare(struct sqlca_t *st, int id, char *sname, int nParams){
 	prepare = get_prepare_from_list(sname);
 	if(prepare == NULL){
 		ERRLOG("prepare %s not registered.\n", sname);
-		OCDBSetLibErrorStatus(st,OCDB_INVALID_STMT);
+		st->sqlcode = OCDB_RES_UNDEFINED_PREPARE;
 		return 1;
 	}
 
@@ -1293,25 +1244,26 @@ _ocesqlExecPrepare(struct sqlca_t *st, int id, char *sname, int nParams){
 	// check argument
 	if(query == NULL || strlen(query) == 0 || nParams != prepare->sq.nParams){
 		ERRLOG("prepare %s argument error.\n", sname);
-		OCDBSetLibErrorStatus(st,OCDB_EMPTY);
+		st->sqlcode = OCDB_RES_ARGUMENT_ERROR;
 		return 1;
 	}
 
 	if(nParams > 0){
 		if(prepare->sq.nParams != nParams){
 			ERRLOG("A number of parameters(%d) and prepared sql parameters(%d) is unmatch.\n",nParams,prepare->sq.nParams);
-			OCDBSetLibErrorStatus(st,OCDB_EMPTY);
-			com_strcpy(st->sqlerrm.sqlerrmc, SQLERRMC_LEN, "A number of parameters and prepared sql parameters is unmatch.");
-			st->sqlerrm.sqlerrml = strlen("A number of parameters and prepared sql parameters is unmatch.");
-			return 1;
+					st->sqlcode =  OCDB_RES_ARGUMENT_ERROR;
+					strcpy(st->sqlerrm.sqlerrmc,"A number of parameters and prepared sql parameters is unmatch.");
+					st->sqlerrm.sqlerrml = strlen("A number of parameters and prepared sql parameters is unmatch.");
+					return 1;
 		}
 		if((arr = (char **)malloc(sizeof(char *) * nParams)) == NULL){
-			OCDBSetLibErrorStatus(st,OCDB_OUT_OF_MEMORY);
+			st->sqlcode = OCDB_RES_ALLOCATE_ERROR;
 			return 1;
 		}
 
 		// set parameters
 		for(i=0; i<_var_lists_length; i++, p=p->next){
+			//LOG("set parameter p->sv.realdata [%s]\n", p->sv.realdata);
 			arr[i] = p->sv.realdata;
 		}
 
@@ -1322,7 +1274,159 @@ _ocesqlExecPrepare(struct sqlca_t *st, int id, char *sname, int nParams){
 		OCDBExec(id, query);
 	}
 
-	if(OCDBSetResultStatus(id,st) != RESULT_SUCCESS){
+	_ocesqlResultStatus(id,st);
+	if(st->sqlcode < 0){
+		return 1;
+	}
+
+	if(strcmp(query, "COMMIT") == 0|| strcmp(query, "ROLLBACK") == 0){
+		clear_cursor_list(&_cursor_list, id);
+		OCDBExec(id, "BEGIN");
+	}
+	return 0;
+}
+
+/*
+ * <Function name>
+ *   OCESQLExecPrepareOccurs
+ *
+ * <Outline>
+ *   $B<B=hM}$O(B_ocesqlExecPrepareOccurs$B$K$F(B
+ *
+ * <Input>
+ *   @st: SQLCA pointer
+ *   @sname: Prepared SQLID
+ *   @nParams: $B%Q%i%a!<%?$N8D?t(B
+ */
+
+int
+OCESQLExecPrepareOccurs(struct sqlca_t *st, char *sname, int nParams){
+	LOG("OCESQLExecPrepared start\n");
+	int id;
+	id = _ocesqlResolveCONNID(st, OCESQL_DEFAULT_DBNAME, strlen(OCESQL_DEFAULT_DBNAME));
+	if(id == RESULT_FAILED){
+		ERRLOG("connection id is not found.\n");
+		st->sqlcode = OCDB_RES_UNDEFINED_CONNECTION;
+		return 1;
+	}
+
+	return _ocesqlExecPrepareOccurs(st, id, sname, nParams);
+}
+
+/*
+ * <Function name>
+ *   OCESQLIDExecPrepare
+ *
+ * <Outline>
+ *   $B<B=hM}$O(B_ocesqlExecPrepareOccurs$B$K$F(B
+ *
+ * <Input>
+ *   @st: SQLCA pointer
+ *   @atdb: Connection Identifier
+ *   @atdblen: length of atdb
+ *   @sname: Prepared SQLID
+ *   @nParams: $B%Q%i%a!<%?$N8D?t(B
+ */
+int
+OCESQLIDExecPrepareOccurs(struct sqlca_t *st, char *atdb, int atdblen, char *sname, int nParams){
+	LOG("OCESQLExecPrepared start\n");
+	int id;
+	id = _ocesqlResolveCONNID(st, atdb, atdblen);
+	if(id == RESULT_FAILED){
+		ERRLOG("connection id is not found.\n");
+		st->sqlcode = OCDB_RES_UNDEFINED_CONNECTION;
+		return 1;
+	}
+
+	return _ocesqlExecPrepareOccurs(st, id, sname, nParams);
+}
+
+/*
+ * <Function name>
+ *   _ocesqlExecPrepareOccurs
+ *
+ * <Outline>
+ *   $BKd$a9~$_%Q%i%a!<%?IU$-(BSQL$B%/%(%j$N<B9T(B
+ *   $B%Q%i%a!<%?$O$O(BSetHostTable$B$GDj5A$7$?7+$jJV$72s?t$H0l<~$N%P%$%H?t$K(B
+ *   $B=>$$%;%C%H$5$l$k(B
+ *
+ *   $B<B9T7k2L(B(OCDB_RES_* -> ocdb.h $B;2>H(B)$B$O(BSQLCA$B$K3JG<$9$k(B
+ *
+ * <Input>
+ *   @st: SQLCA pointer
+ *   @id: ConnectionId
+ *   @sname: Prepared SQLID
+ *   @nParams: $B%Q%i%a!<%?$N8D?t(B
+ */
+static int
+_ocesqlExecPrepareOccurs(struct sqlca_t *st, int id, char *sname, int nParams){
+	int i, index;
+	char **arr;
+	char *query;
+	SQLVARLIST *p;
+	PREPARELIST *prepare;
+
+	sqlca_initialize(st);
+
+	// search prepare
+	prepare = get_prepare_from_list(sname);
+	if(prepare == NULL){
+		ERRLOG("prepare %s not registered.\n", sname);
+		st->sqlcode = OCDB_RES_UNDEFINED_PREPARE;
+		return 1;
+	}
+
+	query = prepare->sq.query;
+
+	// check argument
+	if(query == NULL || strlen(query) == 0 || _occurs_iter > OCDB_OCCURS_MAX_TIMES){
+		ERRLOG("prepare %s argument error.\n", sname);
+		st->sqlcode = OCDB_RES_ARGUMENT_ERROR;
+		return 1;
+	}
+
+	if(nParams > 0){
+		if(prepare->sq.nParams != nParams){
+			ERRLOG("A number of parameters(%d) and prepared sql parameters(%d) is unmatch.\n",nParams,prepare->sq.nParams);
+					st->sqlcode =  OCDB_RES_ARGUMENT_ERROR;
+					strcpy(st->sqlerrm.sqlerrmc,"A number of parameters and prepared sql parameters is unmatch.");
+					st->sqlerrm.sqlerrml = strlen("A number of parameters and prepared sql parameters is unmatch.");
+					return 1;
+		}
+		if((arr = (char **)malloc(sizeof(char *) * nParams)) == NULL){
+			st->sqlcode = OCDB_RES_ALLOCATE_ERROR;
+			return 1;
+		}
+
+		for(index=0; index<_occurs_iter; index++){
+			// set parameters
+			p = _sql_var_lists;
+
+			// check
+			if(is_group_occurs_param_set(_sql_var_lists, index) == RESULT_SUCCESS){
+				for(i=0; i<_var_lists_length; i++, p=p->next){
+					//LOG("set parameter p->sv.realdata [%s][index=%d]\n", p->sv.realdata, index);
+					create_realdata(&p->sv, index);
+					arr[i] = p->sv.realdata;
+				}
+			
+				OCDBExecParams(id, query, nParams, NULL,
+					       (const char * const *)arr, NULL, NULL, 0);
+				_ocesqlResultStatus(id,st);
+				if(st->sqlcode < 0){
+					break;
+				}
+			}
+		}
+		if(arr != NULL){
+			free(arr);
+		}
+	}else{
+		OCDBExec(id, query);
+		_ocesqlResultStatus(id,st);
+	}
+
+	if(st->sqlcode < 0){
 		return 1;
 	}
 
@@ -1338,8 +1442,8 @@ _ocesqlExecPrepare(struct sqlca_t *st, int id, char *sname, int nParams){
  *   OCESQLCursorOpen
  *
  * <Outline>
- *   カーソルオープン
- *   実行結果(OCDB_RES_* -> ocdb.h 参照)はSQLCAに格納する
+ *   $B%+!<%=%k%*!<%W%s(B
+ *   $B<B9T7k2L(B(OCDB_RES_* -> ocdb.h $B;2>H(B)$B$O(BSQLCA$B$K3JG<$9$k(B
  *
  * <Input>
  *   @st: SQLCA pointer
@@ -1355,7 +1459,7 @@ OCESQLCursorOpen(struct sqlca_t *st, char *cname){
 	// check argument
 	LOG("cname=#%s#\n", cname);
 	if(cname == NULL || strlen(cname) == 0){
-		OCDBSetLibErrorStatus(st,OCDB_EMPTY);
+		st->sqlcode = OCDB_RES_ARGUMENT_ERROR;
 		return 1;
 	}
 
@@ -1363,14 +1467,15 @@ OCESQLCursorOpen(struct sqlca_t *st, char *cname){
 	cursor = get_cursor_from_list(cname);
 	if(cursor == NULL){
 		ERRLOG("cursor %s not registered.\n", cname);
-		OCDBSetLibErrorStatus(st,OCDB_WARNING_UNKNOWN_PORTAL);
+		st->sqlcode = OCDB_RES_UNDEFINED_CURSOR;
 		return 1;
 	}
 
 	if(cursor->isOpened){
 		LOG("cursor %s alredy opened.\n", cname);
 		OCDBCursorClose(cursor->connid, cname);
-		if(OCDBSetResultStatus(cursor->connid,st) != RESULT_SUCCESS){
+		_ocesqlResultStatus(cursor->connid,st);
+		if(st->sqlcode < 0){
 			ERRLOG("cursor %s close failed.\n", cname);
 			return 1;
 		}
@@ -1385,12 +1490,13 @@ OCESQLCursorOpen(struct sqlca_t *st, char *cname){
 
 		if((arr = (char **)malloc(sizeof(char *) * cursor->nParams)) == NULL){
 			ERRLOG("memory allocation failed.\n");
-			OCDBSetLibErrorStatus(st,OCDB_OUT_OF_MEMORY);
+			st->sqlcode =OCDB_RES_ALLOCATE_ERROR;
 			return 1;
 		}
 
 		// set parameters
 		for(i=0; i<cursor->nParams; i++, p=p->next){
+			//LOG("set parameter p->sv.realdata [%s]\n", p->sv.realdata);
 			create_realdata(&p->sv,0);
 			arr[i] = p->sv.realdata;
 			LOG("params[%d]:#%s#\n",i, p->sv.realdata);
@@ -1408,14 +1514,15 @@ OCESQLCursorOpen(struct sqlca_t *st, char *cname){
 		OCDBCursorDeclare(cursor->connid, cursor->cname,
 				  cursor->query, OCDB_CURSOR_WITH_HOLD_OFF);
 	}
-
-	if(OCDBSetResultStatus(cursor->connid,st) != RESULT_SUCCESS){
+	_ocesqlResultStatus(cursor->connid,st);
+	if(st->sqlcode < 0){
 		return 1;
 	}
 
 	// OPEN CURSOR
 	OCDBCursorOpen(cursor->connid, cursor->cname);
-	if(OCDBSetResultStatus(cursor->connid,st) != RESULT_SUCCESS){
+	_ocesqlResultStatus(cursor->connid,st);
+	if(st->sqlcode < 0){
 		return 1;
 	}
 	cursor->isOpened = 1;
@@ -1424,16 +1531,16 @@ OCESQLCursorOpen(struct sqlca_t *st, char *cname){
 
 /*
  * <Function name>
- *   OCESQLCursorOpenParams -- 使わないかも
+ *   OCESQLCursorOpenParams -- $B;H$o$J$$$+$b(B
  *
  * <Outline>
- *   カーソルオープン
- *   実行結果(OCDB_RES_* -> ocdb.h 参照)はSQLCAに格納する
+ *   $B%+!<%=%k%*!<%W%s(B
+ *   $B<B9T7k2L(B(OCDB_RES_* -> ocdb.h $B;2>H(B)$B$O(BSQLCA$B$K3JG<$9$k(B
  *
  * <Input>
  *   @st: SQLCA pointer
  *   @cname: cursor name
- *   @nParams: パラメータの個数
+ *   @nParams: $B%Q%i%a!<%?$N8D?t(B
  */
 int
 OCESQLCursorOpenParams(struct sqlca_t *st, char *cname, int nParams){
@@ -1444,7 +1551,8 @@ OCESQLCursorOpenParams(struct sqlca_t *st, char *cname, int nParams){
 	// check argument
 	LOG("cname=#%s#\n", cname);
 	if(cname == NULL || strlen(cname) == 0){
-		OCDBSetLibErrorStatus(st,OCDB_EMPTY);
+
+		st->sqlcode = OCDB_RES_ARGUMENT_ERROR;
 		return 1;
 	}
 
@@ -1452,27 +1560,28 @@ OCESQLCursorOpenParams(struct sqlca_t *st, char *cname, int nParams){
 	cursor = get_cursor_from_list(cname);
 	if(cursor == NULL){
 		ERRLOG("cursor %s not registered.\n", cname);
-		OCDBSetLibErrorStatus(st,OCDB_WARNING_UNKNOWN_PORTAL);
+		st->sqlcode = OCDB_RES_UNDEFINED_CURSOR;
 		return 1;
 	}
 	if(cursor->sp == NULL){
 		ERRLOG("prepare sql in cursor '%s' not registered.\n", cname);
-		OCDBSetLibErrorStatus(st,OCDB_INVALID_STMT);
+		st->sqlcode = OCDB_RES_UNDEFINED_PREPARE;
 		return 1;
 	}
 	if(cursor->sp->sq.nParams != nParams){
 		ERRLOG("A number of parameters(%d) and prepared sql parameters(%d) is unmatch.\n",nParams,cursor->sp->sq.nParams);
-		OCDBSetLibErrorStatus(st,OCDB_EMPTY);
-		com_strcpy(st->sqlerrm.sqlerrmc, SQLERRMC_LEN, "A number of parameters and prepared sql parameters is unmatch.");
+		st->sqlcode =  OCDB_RES_ARGUMENT_ERROR;
+		strcpy(st->sqlerrm.sqlerrmc,"A number of parameters and prepared sql parameters is unmatch.");
 		st->sqlerrm.sqlerrml = strlen("A number of parameters and prepared sql parameters is unmatch.");
 		return 1;
 	}
 	if(cursor->isOpened){
 		LOG("cursor %s alredy opened.\n", cname);
 		OCDBCursorClose(cursor->connid, cname);
-		if(OCDBSetResultStatus(cursor->connid,st) != RESULT_SUCCESS){
+		_ocesqlResultStatus(cursor->connid,st);
+		if(st->sqlcode < 0){
 			ERRLOG("cursor %s close failed.\n", cname);
-			com_strncpy(st->sqlerrm.sqlerrmc, SQLERRMC_LEN, OCDBResultErrorMessage(cursor->connid), SQLERRMC_LEN - 1);
+			strncpy(st->sqlerrm.sqlerrmc, OCDBResultErrorMessage(cursor->connid), SQLERRMC_LEN - 1);
 			return 1;
 		}
 		cursor->isOpened = 0;
@@ -1484,12 +1593,13 @@ OCESQLCursorOpenParams(struct sqlca_t *st, char *cname, int nParams){
 
 	if((arr = (char **)malloc(sizeof(char *) * nParams)) == NULL){
 		ERRLOG("memory allocation failed.\n");
-		OCDBSetLibErrorStatus(st,OCDB_OUT_OF_MEMORY);
+		st->sqlcode = OCDB_RES_ALLOCATE_ERROR;
 		return 1;
 	}
 
 	// set parameters
 	for(i=0; i<_var_lists_length; i++, p=p->next){
+		//LOG("set parameter p->sv.realdata [%s]\n", p->sv.realdata);
 		arr[i] = p->sv.realdata;
 		LOG("params[%d]:#%s#\n",i, p->sv.realdata);
 	}
@@ -1497,15 +1607,16 @@ OCESQLCursorOpenParams(struct sqlca_t *st, char *cname, int nParams){
 	OCDBCursorDeclareParams(cursor->connid, cursor->cname, cursor->sp->sq.query,
 			cursor->sp->sq.nParams, NULL, (const char * const *)arr,
 					NULL, NULL, 0, OCDB_CURSOR_WITH_HOLD_OFF);
-
+	_ocesqlResultStatus(cursor->connid,st);
 	free(arr);
-	if(OCDBSetResultStatus(cursor->connid,st) != RESULT_SUCCESS){
+	if(st->sqlcode < 0){
 		return 1;
 	}
 
 	// OPEN CURSOR
 	OCDBCursorOpen(cursor->connid, cursor->cname);
-	if(OCDBSetResultStatus(cursor->connid,st) != RESULT_SUCCESS){
+	_ocesqlResultStatus(cursor->connid,st);
+	if(st->sqlcode < 0){
 		return 1;
 	}
 	cursor->isOpened = 1;
@@ -1517,9 +1628,9 @@ OCESQLCursorOpenParams(struct sqlca_t *st, char *cname, int nParams){
  *   OCESQLCursorFetchOne
  *
  * <Outline>
- *   カーソルフェッチ
- *   実行結果(OCDB_RES_* -> ocdb.h 参照)はSQLCAに格納する
- *   OCDBGetValueで返される値は左詰めになっていることを前提としている。
+ *   $B%+!<%=%k%U%'%C%A(B
+ *   $B<B9T7k2L(B(OCDB_RES_* -> ocdb.h $B;2>H(B)$B$O(BSQLCA$B$K3JG<$9$k(B
+ *   OCDBGetValue$B$GJV$5$l$kCM$O:85M$a$K$J$C$F$$$k$3$H$rA0Ds$H$7$F$$$k!#(B
  *
  * <Input>
  *   @st: SQLCA pointer
@@ -1538,35 +1649,36 @@ OCESQLCursorFetchOne(struct sqlca_t *st, char *cname){
 
 	// check argument
 	if(cname == NULL || strlen(cname) == 0){
-		OCDBSetLibErrorStatus(st,OCDB_EMPTY);
+		st->sqlcode = OCDB_RES_ARGUMENT_ERROR;
 		return 1;
 	}
 	LOG("cname:%s\n",cname);
 	cursor = get_cursor_from_list(cname);
 	if(cursor == NULL){
 		ERRLOG("cursor %s not registered.\n", cname);
-		OCDBSetLibErrorStatus(st,OCDB_WARNING_UNKNOWN_PORTAL);
+		st->sqlcode =  OCDB_RES_UNDEFINED_CURSOR;
 		return 1;
 	}
 	id = cursor->connid;
 
 	// exec sql
 	OCDBCursorFetchOne(id, cname, OCDB_READ_NEXT);
-	if(OCDBSetResultStatus(id,st) != RESULT_SUCCESS){
+	_ocesqlResultStatus(id,st);
+	if(st->sqlcode < 0){
 		return 1;
 	}
 
 	if(OCDBNfields(id) != _res_var_lists_length){
 		ERRLOG("A number of parameters(%d) and results(%d) is unmatch.\n",_res_var_lists_length,OCDBNfields(id));
-		OCDBSetLibErrorStatus(st,OCDB_EMPTY);
-		com_strcpy(st->sqlerrm.sqlerrmc, SQLERRMC_LEN, "A number of parameters and results is unmatch.");
+		st->sqlcode =  OCDB_RES_ARGUMENT_ERROR;
+		strcpy(st->sqlerrm.sqlerrmc,"A number of parameters and results is unmatch.");
 		st->sqlerrm.sqlerrml = strlen("A number of parameters and results is unmatch.");
 		return 1;
 	}
 
 	// check numtuples
 	if(OCDBNtuples(id) < 1){
-		OCDBSetLibErrorStatus(st,OCDB_NOT_FOUND);
+		st->sqlcode = OCDB_RES_TUPLES_NODATA;
 		st->sqlerrd[2] = cursor->tuples;
 		LOG("TUPLES NODATA\n");
 		return 1;
@@ -1574,7 +1686,9 @@ OCESQLCursorFetchOne(struct sqlca_t *st, char *cname){
 		// set params
 		char *retstr;
 		for(i=0; i< _res_var_lists_length; i++, p = p->next){
+			//LOG("var_list(%d) %d %d %d\n", i, p->sv.type, p->sv.length, p->sv.addr);
 			retstr = OCDBGetvalue(id, 0, i);
+			//LOG("retstr [%s]\n", retstr);
 			create_coboldata(&p->sv, 0, retstr);
 		}
 	}
@@ -1588,12 +1702,12 @@ OCESQLCursorFetchOne(struct sqlca_t *st, char *cname){
  *   OCESQLCursorFetchOccurs
  *
  * <Outline>
- *   カーソルフェッチ
- *   実行結果(OCDB_RES_* -> ocdb.h 参照)はSQLCAに格納する
- *   OCDBGetValueで返される値は左詰めになっていることを前提としている。
+ *   $B%+!<%=%k%U%'%C%A(B
+ *   $B<B9T7k2L(B(OCDB_RES_* -> ocdb.h $B;2>H(B)$B$O(BSQLCA$B$K3JG<$9$k(B
+ *   OCDBGetValue$B$GJV$5$l$kCM$O:85M$a$K$J$C$F$$$k$3$H$rA0Ds$H$7$F$$$k!#(B
  *
- *   フェッチした値はSetHostTableで定義した繰り返し回数と一周のバイト数に
- *   従いセットされる
+ *   $B%U%'%C%A$7$?CM$O(BSetHostTable$B$GDj5A$7$?7+$jJV$72s?t$H0l<~$N%P%$%H?t$K(B
+ *   $B=>$$%;%C%H$5$l$k(B
  *
  * <Input>
  *   @st: SQLCA pointer
@@ -1613,15 +1727,17 @@ OCESQLCursorFetchOccurs(struct sqlca_t *st, char *cname){
 	sqlca_initialize(st);
 
 	// check argument
-	if(cname == NULL || strlen(cname) == 0 || _occurs_iter > 500){
-		OCDBSetLibErrorStatus(st,OCDB_EMPTY);
+	if(cname == NULL || strlen(cname) == 0 || _occurs_iter > OCDB_OCCURS_MAX_TIMES){
+		ERRLOG("_occurs_iter:%d\n", _occurs_iter);
+		ERRLOG("cname:%s\n", cname);
+		st->sqlcode = OCDB_RES_ARGUMENT_ERROR;
 		return 1;
 	}
 	LOG("cname:%s\n",cname);
 	cursor = get_cursor_from_list(cname);
 	if(cursor == NULL){
 		ERRLOG("cursor %s not registered.\n", cname);
-		OCDBSetLibErrorStatus(st,OCDB_WARNING_UNKNOWN_PORTAL);
+		st->sqlcode = OCDB_RES_UNDEFINED_CURSOR;
 		return 1;
 	}
 	id = cursor->connid;
@@ -1634,17 +1750,19 @@ OCESQLCursorFetchOccurs(struct sqlca_t *st, char *cname){
 	}
 
 	fields = OCDBNfields(id);
+
 	if(fields != _res_var_lists_length){
 		ERRLOG("A number of parameters(%d) and results(%d) is unmatch.\n",_res_var_lists_length, fields);
-		OCDBSetLibErrorStatus(st,OCDB_EMPTY);
-		com_strcpy(st->sqlerrm.sqlerrmc, SQLERRMC_LEN, "A number of parameters and results is unmatch.");
+		st->sqlcode =  OCDB_RES_ARGUMENT_ERROR;
+		strcpy(st->sqlerrm.sqlerrmc,"A number of parameters and results is unmatch.");
 		st->sqlerrm.sqlerrml = strlen("A number of parameters and results is unmatch.");
 		return 1;
 	}
 
+
 	tuples = OCDBNtuples(id);
 	if(tuples < 1){
-		OCDBSetLibErrorStatus(st,OCDB_NOT_FOUND);
+		st->sqlcode = OCDB_RES_TUPLES_NODATA;
 		LOG("TUPLES NODATA\n");
 		return 0;
 	}
@@ -1659,9 +1777,10 @@ OCESQLCursorFetchOccurs(struct sqlca_t *st, char *cname){
 		for(i=0; i< _res_var_lists_length; i++, p = p->next){
 			if(i>=fields)
 				break;
+			//LOG("var_list(%d) %d %d %d\n", i, p->sv.type, p->sv.length, p->sv.addr);
 			retstr = OCDBGetvalue(id, j, i);
+			//LOG("retstr [%s]\n", retstr);
 			create_coboldata(&p->sv, j, retstr);
-
 		}
 		cursor->tuples += 1;
 	}
@@ -1674,6 +1793,7 @@ OCESQLCursorFetchOccurs(struct sqlca_t *st, char *cname){
 				create_coboldata_lowvalue(&p->sv, j);
 			}
 		}
+
 	}
 
 	st->sqlerrd[2] = cursor->tuples;
@@ -1685,8 +1805,8 @@ OCESQLCursorFetchOccurs(struct sqlca_t *st, char *cname){
  *   OCESQLCursorClose
  *
  * <Outline>
- *   カーソルクローズ
- *   実行結果(OCDB_RES_* -> ocdb.h 参照)はSQLCAに格納する
+ *   $B%+!<%=%k%/%m!<%:(B
+ *   $B<B9T7k2L(B(OCDB_RES_* -> ocdb.h $B;2>H(B)$B$O(BSQLCA$B$K3JG<$9$k(B
  *
  * <Input>
  *   @st: SQLCA pointer
@@ -1703,7 +1823,7 @@ OCESQLCursorClose(struct sqlca_t *st, char *cname){
 
 	// check argument
 	if(cname == NULL || strlen(cname) == 0){
-		OCDBSetLibErrorStatus(st,OCDB_EMPTY);
+		st->sqlcode = OCDB_RES_ARGUMENT_ERROR;
 		return 1;
 	}
 	LOG("Cursor Name:%s\n",cname);
@@ -1711,11 +1831,12 @@ OCESQLCursorClose(struct sqlca_t *st, char *cname){
 	cursor = get_cursor_from_list(cname);
 	if(cursor == NULL){
 		ERRLOG("cursor %s not registered.\n", cname);
-		OCDBSetLibErrorStatus(st,OCDB_WARNING_UNKNOWN_PORTAL);
+		st->sqlcode = OCDB_RES_UNDEFINED_CURSOR;
 		return 1;
 	}
 	if(!cursor->isOpened){
 		LOG("cursor %s not opened.\n", cname);
+		//remove_cursor_list(cname);
 		return 0;
 	}
 
@@ -1723,7 +1844,8 @@ OCESQLCursorClose(struct sqlca_t *st, char *cname){
 	LOG("Connect ID:%d\n",id);
 
 	OCDBCursorClose(id, cname);
-	if(OCDBSetResultStatus(id,st) != RESULT_SUCCESS){
+	_ocesqlResultStatus(id,st);
+	if(st->sqlcode < 0){
 		return 1;
 	}
 
@@ -1737,14 +1859,14 @@ OCESQLCursorClose(struct sqlca_t *st, char *cname){
  *   OCESQLExecSelectIntoOne
  *
  * <Outline>
- *   実処理は_ocesqlExecSelectIntoOneで
+ *   $B<B=hM}$O(B_ocesqlExecSelectIntoOne$B$G(B
  *
  * <Input>
  *   @st: SQLCA pointer
  *   @id: ConnectionId
  *   @query: SQL query
- *   @nParams: パラメータの個数
- *   @nResParams: パラメータの個数
+ *   @nParams: $B%Q%i%a!<%?$N8D?t(B
+ *   @nResParams: $B%Q%i%a!<%?$N8D?t(B
  */
 int
 OCESQLExecSelectIntoOne(struct sqlca_t *st, char *query, int nParams, int nResParams){
@@ -1754,7 +1876,7 @@ OCESQLExecSelectIntoOne(struct sqlca_t *st, char *query, int nParams, int nResPa
 	id = _ocesqlResolveCONNID(st, OCESQL_DEFAULT_DBNAME, OCESQL_DEFAULT_DBLENG);
 	if(id == RESULT_FAILED){
 		ERRLOG("connection id is not found.\n");
-		OCDBSetLibErrorStatus(st,OCDB_NO_CONN);
+		st->sqlcode = OCDB_RES_UNDEFINED_CONNECTION;
 		return 1;
 	}
 	_ocesqlExecSelectIntoOne(st, id, query, nParams, nResParams);
@@ -1766,16 +1888,16 @@ OCESQLExecSelectIntoOne(struct sqlca_t *st, char *query, int nParams, int nResPa
  *   OCESQLIDExecSelectIntoOne
  *
  * <Outline>
- *   ここでは接続ID取得のみを実施
- *   実処理は_ocesqlExecSelectIntoOneで
+ *   $B$3$3$G$O@\B3(BID$B<hF@$N$_$r<B;\(B
+ *   $B<B=hM}$O(B_ocesqlExecSelectIntoOne$B$G(B
  *
  * <Input>
  *   @st: SQLCA pointer
  *   @atdb: Connection Identifier
  *   @atdblen: length of atdb
  *   @query: SQL query
- *   @nParams: パラメータの個数
- *   @nResParams: パラメータの個数
+ *   @nParams: $B%Q%i%a!<%?$N8D?t(B
+ *   @nResParams: $B%Q%i%a!<%?$N8D?t(B
  */
 int
 OCESQLIDExecSelectIntoOne(struct sqlca_t *st, char *atdb, int atdblen,
@@ -1785,7 +1907,7 @@ OCESQLIDExecSelectIntoOne(struct sqlca_t *st, char *atdb, int atdblen,
 	id = _ocesqlResolveCONNID(st, atdb, atdblen);
 	if(id == RESULT_FAILED){
 		ERRLOG("connection id is not found.\n");
-		OCDBSetLibErrorStatus(st,OCDB_NO_CONN);
+		st->sqlcode = OCDB_RES_UNDEFINED_CONNECTION;
 		return 1;
 	}
 	_ocesqlExecSelectIntoOne(st, id, query, nParams, nResParams);
@@ -1797,16 +1919,16 @@ OCESQLIDExecSelectIntoOne(struct sqlca_t *st, char *atdb, int atdblen,
  *   _ocesqlExecSelectIntoOne
  *
  * <Outline>
- *   SELECT INTO の実行
- *   実行結果(OCDB_RES_* -> ocdb.h 参照)はSQLCAに格納する
- *   OCDBGetValueで返される値は左詰めになっていることを前提としている。
+ *   SELECT INTO $B$N<B9T(B
+ *   $B<B9T7k2L(B(OCDB_RES_* -> ocdb.h $B;2>H(B)$B$O(BSQLCA$B$K3JG<$9$k(B
+ *   OCDBGetValue$B$GJV$5$l$kCM$O:85M$a$K$J$C$F$$$k$3$H$rA0Ds$H$7$F$$$k!#(B
  *
  * <Input>
  *   @st: SQLCA pointer
  *   @id: ConnectionId
  *   @query: SQL query
- *   @nParams: パラメータの個数
- *   @nResParams: パラメータの個数
+ *   @nParams: $B%Q%i%a!<%?$N8D?t(B
+ *   @nResParams: $B%Q%i%a!<%?$N8D?t(B
  */
 static void
 _ocesqlExecSelectIntoOne(struct sqlca_t *st, int id, char *query, int nParams, int nResParams){
@@ -1818,7 +1940,7 @@ _ocesqlExecSelectIntoOne(struct sqlca_t *st, int id, char *query, int nParams, i
 	// check argument
 	if(query == NULL || strlen(query) == 0){
 		ERRLOG("ARGUMENT ERROR\n");
-		OCDBSetLibErrorStatus(st,OCDB_EMPTY);
+		st->sqlcode = OCDB_RES_ARGUMENT_ERROR;
 		return;
 	}
 
@@ -1828,20 +1950,20 @@ _ocesqlExecSelectIntoOne(struct sqlca_t *st, int id, char *query, int nParams, i
 		_ocesqlExec(st, id, query);
 	}
 
-	if(OCDBSetResultStatus(id,st) != RESULT_SUCCESS){
+	if(st->sqlcode < 0){
 		return;
 	}
 
 	fields = OCDBNfields(id);
 	if(fields != nResParams){
 		ERRLOG("ResParams(%d) and fields(%d) are different\n",nResParams, fields);
-		OCDBSetLibErrorStatus(st,OCDB_EMPTY);
+		st->sqlcode = OCDB_RES_ARGUMENT_ERROR;
 		return;
 	}
 
 	// check numtuples
 	if(OCDBNtuples(id) < 1){
-		OCDBSetLibErrorStatus(st,OCDB_NOT_FOUND);
+		st->sqlcode = OCDB_RES_TUPLES_NODATA;
 		LOG("TUPLES NODATA\n");
 	} else {
 		// set params
@@ -1849,7 +1971,9 @@ _ocesqlExecSelectIntoOne(struct sqlca_t *st, int id, char *query, int nParams, i
 		for(i=0; i< _res_var_lists_length; i++, p = p->next){
 			if(i>=fields)
 				break;
+			//LOG("var_list(%d) %d %d %d\n", i, p->sv.type, p->sv.length, p->sv.addr);
 			retstr = OCDBGetvalue(id, 0, i);
+			//LOG("retstr [%s]\n", retstr);
 			create_coboldata(&p->sv, 0, retstr);
 		}
 	}
@@ -1861,14 +1985,14 @@ _ocesqlExecSelectIntoOne(struct sqlca_t *st, int id, char *query, int nParams, i
  *   OCESQLExecSelectIntoOccurs
  *
  * <Outline>
- *   実処理は_ocesqlExecSelectIntoOccursで
+ *   $B<B=hM}$O(B_ocesqlExecSelectIntoOccurs$B$G(B
  *
  * <Input>
  *   @st: SQLCA pointer
  *   @id: ConnectionId
  *   @query: SQL query
- *   @nParams: パラメータの個数
- *   @nResParams: パラメータの個数
+ *   @nParams: $B%Q%i%a!<%?$N8D?t(B
+ *   @nResParams: $B%Q%i%a!<%?$N8D?t(B
  */
 int
 OCESQLExecSelectIntoOccurs(struct sqlca_t *st, char *query, int nParams, int nResParams){
@@ -1878,7 +2002,7 @@ OCESQLExecSelectIntoOccurs(struct sqlca_t *st, char *query, int nParams, int nRe
 	id = _ocesqlResolveCONNID(st, OCESQL_DEFAULT_DBNAME, OCESQL_DEFAULT_DBLENG);
 	if(id == RESULT_FAILED){
 		ERRLOG("connection id is not found.\n");
-		OCDBSetLibErrorStatus(st,OCDB_NO_CONN);
+		st->sqlcode = OCDB_RES_UNDEFINED_CONNECTION;
 		return 1;
 	}
 	_ocesqlExecSelectIntoOccurs(st, id, query, nParams, nResParams);
@@ -1890,15 +2014,15 @@ OCESQLExecSelectIntoOccurs(struct sqlca_t *st, char *query, int nParams, int nRe
  *   OCESQLIDExecSelectIntoOccurs
  *
  * <Outline>
- *   ここでは接続ID取得のみを実施
- *   実処理は_ocesqlExecSelectIntoOccursで
+ *   $B$3$3$G$O@\B3(BID$B<hF@$N$_$r<B;\(B
+ *   $B<B=hM}$O(B_ocesqlExecSelectIntoOccurs$B$G(B
  *
  * <Input>
  *   @st: SQLCA pointer
  *   @id: ConnectionId
  *   @query: SQL query
- *   @nParams: パラメータの個数
- *   @nResParams: パラメータの個数
+ *   @nParams: $B%Q%i%a!<%?$N8D?t(B
+ *   @nResParams: $B%Q%i%a!<%?$N8D?t(B
  */
 int
 OCESQLIDExecSelectIntoOccurs(struct sqlca_t *st, char *atdb, int atdblen, char *query, int nParams, int nResParams){
@@ -1907,7 +2031,7 @@ OCESQLIDExecSelectIntoOccurs(struct sqlca_t *st, char *atdb, int atdblen, char *
 	id = _ocesqlResolveCONNID(st, atdb, atdblen);
 	if(id == RESULT_FAILED){
 		ERRLOG("connection id is not found.\n");
-		OCDBSetLibErrorStatus(st,OCDB_NO_CONN);
+		st->sqlcode = OCDB_RES_UNDEFINED_CONNECTION;
 		return 1;
 	}
 	_ocesqlExecSelectIntoOccurs(st, id, query, nParams, nResParams);
@@ -1919,19 +2043,19 @@ OCESQLIDExecSelectIntoOccurs(struct sqlca_t *st, char *atdb, int atdblen, char *
  *   _ocesqlExecSelectIntoOccurs
  *
  * <Outline>
- *   SELECT INTO の実行
- *   実行結果(OCDB_RES_* -> ocdb.h 参照)はSQLCAに格納する
- *   OCDBGetValueで返される値は左詰めになっていることを前提としている。
+ *   SELECT INTO $B$N<B9T(B
+ *   $B<B9T7k2L(B(OCDB_RES_* -> ocdb.h $B;2>H(B)$B$O(BSQLCA$B$K3JG<$9$k(B
+ *   OCDBGetValue$B$GJV$5$l$kCM$O:85M$a$K$J$C$F$$$k$3$H$rA0Ds$H$7$F$$$k!#(B
  *
- *   SELECTした値はSetHostTableで定義した繰り返し回数と一周のバイト数に
- *   従いセットされる
+ *   SELECT$B$7$?CM$O(BSetHostTable$B$GDj5A$7$?7+$jJV$72s?t$H0l<~$N%P%$%H?t$K(B
+ *   $B=>$$%;%C%H$5$l$k(B
  *
  * <Input>
  *   @st: SQLCA pointer
  *   @id: ConnectionId
  *   @query: SQL query
- *   @nParams: パラメータの個数
- *   @nResParams: パラメータの個数
+ *   @nParams: $B%Q%i%a!<%?$N8D?t(B
+ *   @nResParams: $B%Q%i%a!<%?$N8D?t(B
  */
 static void
 _ocesqlExecSelectIntoOccurs(struct sqlca_t *st, int id, char *query, int nParams, int nResParams){
@@ -1943,8 +2067,8 @@ _ocesqlExecSelectIntoOccurs(struct sqlca_t *st, int id, char *query, int nParams
 
 
 	// check argument
-	if(query == NULL || strlen(query) == 0 || _occurs_iter > 500){
-		OCDBSetLibErrorStatus(st,OCDB_EMPTY);
+	if(query == NULL || strlen(query) == 0 || _occurs_iter > OCDB_OCCURS_MAX_TIMES){
+		st->sqlcode = OCDB_RES_ARGUMENT_ERROR;
 		return;
 	}
 
@@ -1954,20 +2078,20 @@ _ocesqlExecSelectIntoOccurs(struct sqlca_t *st, int id, char *query, int nParams
 		_ocesqlExec(st, id, query);
 	}
 
-	if(OCDBSetResultStatus(id,st) != RESULT_SUCCESS){
+	if(st->sqlcode < 0){
 		return;
 	}
 
 	fields = OCDBNfields(id);
 	if(fields != nResParams){
 		ERRLOG("ResParams(%d) and fields(%d) are different\n",nResParams, fields);
-		OCDBSetLibErrorStatus(st,OCDB_EMPTY);
+		st->sqlcode = OCDB_RES_ARGUMENT_ERROR;
 		return;
 	}
 
 	tuples = OCDBNtuples(id);
 	if(tuples < 1){
-		OCDBSetLibErrorStatus(st,OCDB_NOT_FOUND);
+		st->sqlcode = OCDB_RES_TUPLES_NODATA;
 		LOG("TUPLES NODATA\n");
 		return;
 	}
@@ -1981,7 +2105,9 @@ _ocesqlExecSelectIntoOccurs(struct sqlca_t *st, int id, char *query, int nParams
 		for(i=0; i< _res_var_lists_length; i++, p = p->next){
 			if(i>=fields)
 				break;
+			//LOG("var_list(%d) %d %d %d\n", i, p->sv.type, p->sv.length, p->sv.addr);
 			retstr = OCDBGetvalue(id, j, i);
+			//LOG("retstr [%s]\n", retstr);
 			create_coboldata(&p->sv, j, retstr);
 		}
 	}
@@ -2004,13 +2130,13 @@ _ocesqlExecSelectIntoOccurs(struct sqlca_t *st, int id, char *query, int nParams
  *   OCESQLNtuples
  *
  * <Outline>
- *   結果リソースから行数を取得する
+ *   $B7k2L%j%=!<%9$+$i9T?t$r<hF@$9$k(B
  *
  * <Input>
  *   @id: ConnectionId
  *
  * <Output>
- *   success: 行数
+ *   success: $B9T?t(B
  *   failure: OCDB_INVALID_NUMBER
  */
 int
@@ -2023,13 +2149,13 @@ OCESQLNtuples(int id){
  *   OCESQLNfields
  *
  * <Outline>
- *   結果リソースからフィールド数を取得する
+ *   $B7k2L%j%=!<%9$+$i%U%#!<%k%I?t$r<hF@$9$k(B
  *
  * <Input>
  *   @id: ConnectionId
  *
  * <Output>
- *   success: フィールド数
+ *   success: $B%U%#!<%k%I?t(B
  *   failure: OCDB_INVALID_NUMBER
  */
 int
@@ -2042,14 +2168,14 @@ OCESQLNfields(int id){
  *   OCESQLGetvalue
  *
  * <Outline>
- *   結果リソースの1行目の指定したフィールドからデータを文字列型で取得する
+ *   $B7k2L%j%=!<%9$N(B1$B9TL\$N;XDj$7$?%U%#!<%k%I$+$i%G!<%?$rJ8;zNs7?$G<hF@$9$k(B
  *
  * <Input>
  *   @id: ConnectionId
- *   @index: フィールド番号(0からスタート)
+ *   @index: $B%U%#!<%k%IHV9f(B(0$B$+$i%9%?!<%H(B)
  *
  * <Output>
- *   success: データ文字列
+ *   success: $B%G!<%?J8;zNs(B
  *   failure: OCDB_INVALID_NUMBER
  */
 char *
@@ -2062,13 +2188,13 @@ OCESQLGetvalue(int id, int index){
  *   OCESQLResultErrorMessage
  *
  * <Outline>
- *   SQLCAからエラーメッセージを取得する
+ *   SQLCA$B$+$i%(%i!<%a%C%;!<%8$r<hF@$9$k(B
  *
  * <Input>
  *   @st: SQLCA
  *
  * <Output>
- *   success: エラーメッセージ
+ *   success: $B%(%i!<%a%C%;!<%8(B
  *   failure: NULL
  */
 char *
@@ -2081,7 +2207,7 @@ OCESQLResultErrorMessage(struct sqlca_t *st){
  *   OCESQLDisconnect
  *
  * <Outline>
- *   実処理は_ocesqlDisconnect
+ *   $B<B=hM}$O(B_ocesqlDisconnect
  *
  * <Input>
  *   @st: SQLCA pointer
@@ -2095,7 +2221,7 @@ OCESQLDisconnect(struct sqlca_t *st){
 	id = _ocesqlResolveCONNID(st, OCESQL_DEFAULT_DBNAME, OCESQL_DEFAULT_DBLENG);
 	if(id == RESULT_FAILED){
 		ERRLOG("connection id is not found.\n");
-		OCDBSetLibErrorStatus(st,OCDB_NO_CONN);
+		st->sqlcode = OCDB_RES_UNDEFINED_CONNECTION;
 		return 1;
 	}
 	_ocesqlDisconnect(st, id);
@@ -2107,8 +2233,8 @@ OCESQLDisconnect(struct sqlca_t *st){
  *   OCESQLIDDisconnect
  *
  * <Outline>
- *   ここでは接続ID取得のみを実施
- *   実処理は_ocesqlDisconnect
+ *   $B$3$3$G$O@\B3(BID$B<hF@$N$_$r<B;\(B
+ *   $B<B=hM}$O(B_ocesqlDisconnect
  *
  * <Input>
  *   @st: SQLCA pointer
@@ -2122,7 +2248,7 @@ OCESQLIDDisconnect(struct sqlca_t *st, char *atdb, int atdblen){
 	id = _ocesqlResolveCONNID(st, atdb, atdblen);
 	if(id == RESULT_FAILED){
 		ERRLOG("connection id is not found.\n");
-		OCDBSetLibErrorStatus(st,OCDB_NO_CONN);
+		st->sqlcode = OCDB_RES_UNDEFINED_CONNECTION;
 		return 1;
 	}
 	_ocesqlDisconnect(st, id);
@@ -2134,7 +2260,7 @@ OCESQLIDDisconnect(struct sqlca_t *st, char *atdb, int atdblen){
  *   _ocesqlDisonnect
  *
  * <Outline>
- *   データベースから切断する
+ *   $B%G!<%?%Y!<%9$+$i@ZCG$9$k(B
  *
  * <Input>
  *   @st: SQLCA pointer
@@ -2144,6 +2270,8 @@ OCESQLIDDisconnect(struct sqlca_t *st, char *atdb, int atdblen){
 static void
 _ocesqlDisconnect(struct sqlca_t *st, int id){
 	OCDBFinish(id);
+	//LOG("disconnect id=%d\n", id);
+	//LOG("dummy: skip disconnect id=%d\n", id);
 }
 
 /*
@@ -2151,9 +2279,9 @@ _ocesqlDisconnect(struct sqlca_t *st, int id){
  *   OCESQLStartSQL
  *
  * <Outline>
- *   SQLクエリ作成開始処理
- *   _sql_var_lists のクリアを行う
- *   _var_lists_length のクリアを行う
+ *   SQL$B%/%(%j:n@.3+;O=hM}(B
+ *   _sql_var_lists $B$N%/%j%"$r9T$&(B
+ *   _var_lists_length $B$N%/%j%"$r9T$&(B
  *
  */
 int
@@ -2169,16 +2297,16 @@ OCESQLStartSQL(void){
  *   OCESQLSetSQLParams
  *
  * <Outline>
- *   指定されたパラメータを埋め込みSQLリストに追加する
+ *   $B;XDj$5$l$?%Q%i%a!<%?$rKd$a9~$_(BSQL$B%j%9%H$KDI2C$9$k(B
  *
  * <Input>
- *   type : 埋込変数の型
- *   length : 埋込変数のsize
- *   scale : スケール(10のパワーとして表現されたフィールドのスケール)
- *   addr : 変数のアドレス
+ *   type : $BKd9~JQ?t$N7?(B
+ *   length : $BKd9~JQ?t$N(Bsize
+ *   scale : $B%9%1!<%k(B(10$B$N%Q%o!<$H$7$FI=8=$5$l$?%U%#!<%k%I$N%9%1!<%k(B)
+ *   addr : $BJQ?t$N%"%I%l%9(B
  *
  * < Output>
- *   何もしない
+ *   $B2?$b$7$J$$(B
  *
  */
 int
@@ -2188,7 +2316,7 @@ OCESQLSetSQLParams(int type, int length, int scale, void *addr){
 		return 1;
 	}
 
-	if(length < 0){ // 長さがない場合
+	if(length < 0){ // $BD9$5$,$J$$>l9g(B
 		ERRLOG("invalide argument 'length': %d\n", length);
 		return 1;
 	}
@@ -2210,16 +2338,16 @@ OCESQLSetSQLParams(int type, int length, int scale, void *addr){
  *   OCESQLSetSQLParams
  *
  * <Outline>
- *   指定されたパラメータをSQL結果格納リストに追加する
+ *   $B;XDj$5$l$?%Q%i%a!<%?$r(BSQL$B7k2L3JG<%j%9%H$KDI2C$9$k(B
  *
  * <Input>
- *   type : 埋込変数の型
- *   length : 埋込変数のsize
- *   scale : スケール(10のパワーとして表現されたフィールドのスケール)
- *   addr : 変数のアドレス
+ *   type : $BKd9~JQ?t$N7?(B
+ *   length : $BKd9~JQ?t$N(Bsize
+ *   scale : $B%9%1!<%k(B(10$B$N%Q%o!<$H$7$FI=8=$5$l$?%U%#!<%k%I$N%9%1!<%k(B)
+ *   addr : $BJQ?t$N%"%I%l%9(B
  *
  * < Output>
- *   何もしない
+ *   $B2?$b$7$J$$(B
  *
  */
 int
@@ -2229,7 +2357,7 @@ OCESQLSetResultParams(int type, int length, int scale, void *addr){
 		return 1;
 	}
 
-	if(length < 0){ // 長さがない場合
+	if(length < 0){ // $BD9$5$,$J$$>l9g(B
 		ERRLOG("invalide argument 'length': %d\n", length);
 		return 1;
 	}
@@ -2251,15 +2379,15 @@ OCESQLSetResultParams(int type, int length, int scale, void *addr){
  *   OCESQLSetHostTable
  *
  * <Outline>
- *   OCCURS変数がホスト変数に指定されている時に繰り返し回数と
- *   一周のバイト数をセットする
+ *   OCCURS$BJQ?t$,%[%9%HJQ?t$K;XDj$5$l$F$$$k;~$K7+$jJV$72s?t$H(B
+ *   $B0l<~$N%P%$%H?t$r%;%C%H$9$k(B
  *
  * <Input>
  *   iter: iteration count
  *   length: byte length of host variable
  *
  * < Output>
- *   何もしない
+ *   $B2?$b$7$J$$(B
  *
  */
 int
@@ -2283,9 +2411,9 @@ OCESQLSetHostTable(int iter, int length, int is_parent){
  *   OCESQLEndSQL
  *
  * <Outline>
- *   SQLクエリ終了処理
- *   _sql_var_lists のクリアを行う
- *   _var_lists_length のクリアを行う
+ *   SQL$B%/%(%j=*N;=hM}(B
+ *   _sql_var_lists $B$N%/%j%"$r9T$&(B
+ *   _var_lists_length $B$N%/%j%"$r9T$&(B
  */
 int
 OCESQLEndSQL(void){
@@ -2306,8 +2434,8 @@ OCESQLEndSQL(void){
  *   init_sql_var_list
  *
  * <Outline>
- *   埋め込みSQLリスト初期化
- *   必要に応じてclear_sql_var_listも実行する
+ *   $BKd$a9~$_(BSQL$B%j%9%H=i4|2=(B
+ *   $BI,MW$K1~$8$F(Bclear_sql_var_list$B$b<B9T$9$k(B
  */
 static void
 init_sql_var_list(void){
@@ -2337,7 +2465,7 @@ init_sql_var_list(void){
  *   reset_sql_var_list
  *
  * <Outline>
- *   グローバル変数初期化
+ *   $B%0%m!<%P%kJQ?t=i4|2=(B
  *   - _sql_var_lists
  *   - _var_lists_length
  */
@@ -2358,7 +2486,7 @@ reset_sql_var_list(void){
  *   new_sql_var_list
  *
  * <Outline>
- *   埋め込みSQLリスト生成
+ *   $BKd$a9~$_(BSQL$B%j%9%H@8@.(B
  */
 static SQLVARLIST *
 new_sql_var_list(void){
@@ -2370,7 +2498,6 @@ new_sql_var_list(void){
 		p->sv.length = 0;
 		p->sv.power = 0;
 		p->sv.addr = NULL;
-		p->sv.data = NULL;
 		p->sv.realdata = NULL;
 		p->next = NULL;
 	}
@@ -2383,16 +2510,16 @@ new_sql_var_list(void){
  *   add_sql_var_list
  *
  * <Outline>
- *   SQL埋込変数リストの要素を作成し追加する
- *   value には、length + 1の文字列を準備する
- *   addrのデータを型の長さに合わせてdataに格納する
- *   addrのデータと型情報をもとに整形したデータはrealdataに格納する
+ *   SQL$BKd9~JQ?t%j%9%H$NMWAG$r:n@.$7DI2C$9$k(B
+ *   value $B$K$O!"(Blength + 1$B$NJ8;zNs$r=`Hw$9$k(B
+ *   addr$B$N%G!<%?$r7?$ND9$5$K9g$o$;$F(Bdata$B$K3JG<$9$k(B
+ *   addr$B$N%G!<%?$H7?>pJs$r$b$H$K@07A$7$?%G!<%?$O(Brealdata$B$K3JG<$9$k(B
  *
  * <Input>
- *   type : 埋込変数の型
- *   length : 埋込変数のsize
- *   power : 埋込変数のpower
- *   addr : 変数のアドレス
+ *   type : $BKd9~JQ?t$N7?(B
+ *   length : $BKd9~JQ?t$N(Bsize
+ *   power : $BKd9~JQ?t$N(Bpower
+ *   addr : $BJQ?t$N%"%I%l%9(B
  *
  */
 static SQLVARLIST *
@@ -2431,16 +2558,16 @@ add_sql_var_list(int type , int length, int power, void *addr){
  *   add_sql_var_list
  *
  * <Outline>
- *   SQL埋込変数リストの要素を作成し追加する
- *   value には、length + 1の文字列を準備する
- *   addrのデータを型の長さに合わせてdataに格納する
- *   addrのデータと型情報をもとに整形したデータはrealdataに格納する
+ *   SQL$BKd9~JQ?t%j%9%H$NMWAG$r:n@.$7DI2C$9$k(B
+ *   value $B$K$O!"(Blength + 1$B$NJ8;zNs$r=`Hw$9$k(B
+ *   addr$B$N%G!<%?$r7?$ND9$5$K9g$o$;$F(Bdata$B$K3JG<$9$k(B
+ *   addr$B$N%G!<%?$H7?>pJs$r$b$H$K@07A$7$?%G!<%?$O(Brealdata$B$K3JG<$9$k(B
  *
  * <Input>
- *   type : 埋込変数の型
- *   length : 埋込変数のsize
- *   power : 埋込変数のpower
- *   addr : 変数のアドレス
+ *   type : $BKd9~JQ?t$N7?(B
+ *   length : $BKd9~JQ?t$N(Bsize
+ *   power : $BKd9~JQ?t$N(Bpower
+ *   addr : $BJQ?t$N%"%I%l%9(B
  *
  */
 static SQLVARLIST *
@@ -2466,6 +2593,8 @@ add_sql_res_var_list(int type , int length, int power, void *addr){
 	p->sv.power = power;
 	p->sv.addr = addr;
 
+
+	//create_realdata(&p->sv, 0);
 	_res_var_lists_length++;
 
 	return p;
@@ -2473,289 +2602,18 @@ add_sql_res_var_list(int type , int length, int power, void *addr){
 
 static void
 create_realdata(SQLVAR *sv,int index){
-	int type = sv->type;
-	int length = sv->length;
-	int power = sv->power;
-	void *addr = sv->addr;
-	char *caddr = addr;
 
+	COBOLFIELD field;
+	field.addr = sv->addr;
 	if(_occurs_is_parent){
-		caddr += index * _occurs_length;
+		field.addr += index * _occurs_length;
 	}else{
-		caddr += index * length;
+		field.addr += index * get_sqlvar_byte_length(sv);
 	}
-	addr = caddr;
-
-	SQLVAR sv_tmp;
-	sv_tmp.type = type;
-	sv_tmp.length = length;
-	sv_tmp.power = power;
-	sv_tmp.addr = addr;
-	sv_tmp.data = NULL;
-	sv_tmp.realdata = NULL;
-
-	switch(sv_tmp.type){
-	case OCDB_TYPE_UNSIGNED_NUMBER:
-	{
-		int realdata_length;
-
-		sv_tmp.data = (char *)calloc(sv_tmp.length + TERMINAL_LENGTH, sizeof(char));
-		memcpy(sv_tmp.data, sv_tmp.addr, sv_tmp.length);
-
-		/* set real data */
-		realdata_length = sv_tmp.length;
-		// 小数点
-		if(sv_tmp.power < 0){
-			realdata_length++;
-		}
-		sv_tmp.realdata = (char *)calloc(realdata_length + TERMINAL_LENGTH, sizeof(char));
-		memcpy(sv_tmp.realdata, sv_tmp.data, realdata_length);
-
-		if(sv_tmp.power < 0){
-			insert_decimal_point(sv_tmp.realdata, realdata_length, sv_tmp.power);
-		}
-
-		LOG("%d %d->%d#data:%s#realdata:%s\n", sv_tmp.type, length,
-			sv_tmp.length, sv_tmp.data, sv_tmp.realdata);
-		break;
-	}
-	case OCDB_TYPE_SIGNED_NUMBER_TC:
-	{
-		int realdata_length;
-
-		sv_tmp.data = (char *)calloc(sv_tmp.length + TERMINAL_LENGTH, sizeof(char));
-		memcpy(sv_tmp.data, sv_tmp.addr, sv_tmp.length);
-
-		/* set real data */
-		// 符号部分
-		realdata_length = SIGN_LENGTH + sv_tmp.length;
-		// 小数点
-		if(sv_tmp.power < 0){
-			realdata_length++;
-		}
-
-		sv_tmp.realdata = (char *)calloc(realdata_length + TERMINAL_LENGTH, sizeof(char));
-		memcpy(sv_tmp.realdata + SIGN_LENGTH, sv_tmp.data, sv_tmp.length);
-
-		// 符号は最後の1桁で判別
-		if(type_tc_is_positive(sv_tmp.realdata + SIGN_LENGTH + sv_tmp.length - 1)){
-			sv_tmp.realdata[0] = '+';
-		} else {
-			sv_tmp.realdata[0] = '-';
-		}
-
-		if(sv_tmp.power < 0){
-			insert_decimal_point(sv_tmp.realdata, realdata_length, sv_tmp.power);
-		}
-
-		LOG("%d %d->%d#data:%s#realdata:%s\n", sv_tmp.type, length,
-			sv_tmp.length, sv_tmp.data, sv_tmp.realdata);
-		break;
-	}
-	case OCDB_TYPE_SIGNED_NUMBER_LS:
-	{
-		int realdata_length;
-
-		sv_tmp.data = (char *)calloc(SIGN_LENGTH +  sv_tmp.length + TERMINAL_LENGTH, sizeof(char));
-		memcpy(sv_tmp.data, sv_tmp.addr, sv_tmp.length + SIGN_LENGTH);
-
-		/* set real data */
-		// 符号部分
-		realdata_length = SIGN_LENGTH + sv_tmp.length;
-		// 小数点
-		if(sv_tmp.power < 0){
-			realdata_length++;
-		}
-		sv_tmp.realdata = (char *)calloc(realdata_length + TERMINAL_LENGTH, sizeof(char));
-		memcpy(sv_tmp.realdata, sv_tmp.data, realdata_length);
-
-		if(sv_tmp.power < 0){
-			insert_decimal_point(sv_tmp.realdata, realdata_length, sv_tmp.power);
-		}
-
-		LOG("%d %d->%d#data:%s#realdata:%s\n", sv_tmp.type, length,
-			sv_tmp.length, sv_tmp.data, sv_tmp.realdata);
-		break;
-	}
-	case OCDB_TYPE_UNSIGNED_NUMBER_PD:
-	{
-		double dlength;
-		int skip_first;
-		int realdata_length;
-
-		dlength = ceil(((double)sv_tmp.length + 1)/2);
-		skip_first = (sv_tmp.length + 1) % 2; // 1 -> skip first 4 bits
-		sv_tmp.data = (char *)calloc((int)dlength + TERMINAL_LENGTH, sizeof(char));
-		memcpy(sv_tmp.data, addr, (int)dlength);
-
-		/* set real data */
-		int i;
-		int index = 0;
-		char *ptr;
-		unsigned char tmp;
-		unsigned char ubit = 0xF0;
-		unsigned char lbit = 0x0F;
-
-		realdata_length = sv_tmp.length;
-		// 小数点
-		if(sv_tmp.power < 0){
-			realdata_length++;
-		}
-
-		sv_tmp.realdata = (char *)calloc(realdata_length + TERMINAL_LENGTH, sizeof(char));
-		for(i=0; i<dlength; i++){
-			char val[2];
-
-			ptr = (char *)sv_tmp.data + i * sizeof(char);
-			tmp = (unsigned char)*ptr;
-			int vallen = 2;
-
-			if(i!=0 || !skip_first){
-				com_sprintf(val, vallen, "%d", (tmp & ubit) >> 4);
-				sv_tmp.realdata[index] = val[0];
-				index++;
-			}
-			if(i != dlength - 1){
-				com_sprintf(val, vallen, "%d", tmp & lbit);
-				sv_tmp.realdata[index] = val[0];
-				index++;
-			}
-		}
-
-		if(sv_tmp.power < 0){
-			insert_decimal_point(sv_tmp.realdata, realdata_length, sv_tmp.power);
-		}
-
-		LOG("%d %d->%d#data:%s#realdata:%s#\n", sv_tmp.type, length,
-			sv_tmp.length, sv_tmp.data, sv_tmp.realdata);
-		break;
-	}
-	case OCDB_TYPE_SIGNED_NUMBER_PD:
-	{
-		double dlength;
-		int skip_first;
-		int realdata_length;
-
-		dlength = ceil(((double)sv_tmp.length + 1)/2);
-		skip_first = (sv_tmp.length + 1) % 2; // 1 -> skip first 4 bits
-		sv_tmp.data = (char *)calloc((int)dlength + TERMINAL_LENGTH, sizeof(char));
-		memcpy(sv_tmp.data, addr, (int)dlength);
-
-		/* set real data */
-		int i;
-		int index = SIGN_LENGTH;
-		char *ptr;
-		unsigned char tmp;
-		unsigned char ubit = 0xF0;
-		unsigned char lbit = 0x0F;
-
-		// 符号部分
-		realdata_length = SIGN_LENGTH + sv_tmp.length;
-		// 小数点
-		if(sv_tmp.power < 0){
-			realdata_length++;
-		}
-
-		sv_tmp.realdata = (char *)calloc(realdata_length + TERMINAL_LENGTH, sizeof(char));
-		for(i=0; i<dlength; i++){
-			char val[2];
-			int vallen = 2;
-
-			ptr = (char *)sv_tmp.data + i * sizeof(char);
-			tmp = (unsigned char)*ptr;
-
-			if(i!=0 || !skip_first){
-				com_sprintf(val, vallen, "%d", (tmp & ubit) >> 4);
-				sv_tmp.realdata[index] = val[0];
-				index++;
-			}
-			if(i != dlength - 1){
-				com_sprintf(val, vallen, "%d", tmp & lbit);
-				sv_tmp.realdata[index] = val[0];
-				index++;
-			} else {
-				if((tmp & lbit) == 0x0C){
-					sv_tmp.realdata[0] = '+';
-				} else {
-					sv_tmp.realdata[0] = '-';
-				}
-			}
-		}
-
-		if(sv_tmp.power < 0){
-			insert_decimal_point(sv_tmp.realdata, realdata_length, sv_tmp.power);
-		}
-
-		LOG("%d %d->%d#data:%s#realdata:%s\n", sv_tmp.type, length,
-			sv_tmp.length, sv_tmp.data, sv_tmp.realdata);
-		break;
-	}
-	case OCDB_TYPE_JAPANESE:
-		length = length * 2;
-		/* no break */
-	case OCDB_TYPE_ALPHANUMERIC:
-		sv_tmp.data = (char *)calloc(length + TERMINAL_LENGTH, sizeof(char));
-		sv_tmp.realdata = (char *)calloc(length + TERMINAL_LENGTH, sizeof(char));
-		memcpy(sv_tmp.data, (char *)addr, length);
-		memcpy(sv_tmp.realdata, (char *)addr, length);
-		LOG("%d %d->%d#%s#%s#\n", sv_tmp.type, length, sv_tmp.length, (char *)sv_tmp.data, (char *)sv_tmp.realdata);
-		break;
-	case OCDB_TYPE_ALPHANUMERIC_VARYING:
-	{
-		int lensize = 0;
-		memcpy(&lensize,addr,OCDB_VARCHAR_HEADER_BYTE);
-		LOG("VARYING-LEN:%d\n",lensize);
-
-		sv_tmp.data = (char *)calloc(lensize + TERMINAL_LENGTH, sizeof(char));
-		sv_tmp.realdata = (char *)calloc(lensize + TERMINAL_LENGTH, sizeof(char));
-
-		memcpy(sv_tmp.data, (char *)((char *)addr + OCDB_VARCHAR_HEADER_BYTE), lensize);
-		memcpy(sv_tmp.realdata, (char *)((char *)addr + OCDB_VARCHAR_HEADER_BYTE), lensize);
-		LOG("%d %d->%d#%s#%s#\n", sv_tmp.type, lensize, sv_tmp.length, (char *)sv_tmp.data, (char *)sv_tmp.realdata);
-		break;
-	}
-	case OCDB_TYPE_JAPANESE_VARYING:
-	{
-		int lensize = 0;
-		memcpy(&lensize,addr,OCDB_VARCHAR_HEADER_BYTE);
-		lensize = lensize * 2;
-		LOG("VARYING-LEN:%d\n",lensize);
-
-		sv_tmp.data = (char *)calloc(lensize + TERMINAL_LENGTH, sizeof(char));
-		sv_tmp.realdata = (char *)calloc(lensize + TERMINAL_LENGTH, sizeof(char));
-
-		memcpy(sv_tmp.data, (char *)((char *)addr + OCDB_VARCHAR_HEADER_BYTE), lensize);
-		memcpy(sv_tmp.realdata, (char *)((char *)addr + OCDB_VARCHAR_HEADER_BYTE), lensize);
-		LOG("%d %d->%d#%s#%s#\n", sv_tmp.type, lensize, sv_tmp.length, (char *)sv_tmp.data, (char *)sv_tmp.realdata);
-		break;
-	}
-	default:
-		sv_tmp.data = (char *)calloc(length + TERMINAL_LENGTH, sizeof(char));
-		sv_tmp.realdata = (char *)calloc(length + TERMINAL_LENGTH, sizeof(char));
-
-		memcpy(sv_tmp.data, (char *)addr, length);
-		memcpy(sv_tmp.realdata, (char *)addr, length);
-		LOG("%d %d->%d#%s#%s#\n", sv_tmp.type, length, sv_tmp.length, (char *)sv_tmp.data, (char *)sv_tmp.realdata);
-		break;
-	}
-	if(sv->realdata){
-		free(sv->realdata);
-		sv->realdata = NULL;
-	}
-	if(sv->data){
-			free(sv->data);
-			sv->data = NULL;
-		}
-	if(sv_tmp.realdata != NULL){
-		sv->realdata = com_strdup(sv_tmp.realdata);
-		free(sv_tmp.realdata);
-		sv_tmp.realdata = NULL;
-	}
-	if(sv_tmp.data != NULL){
-		sv->data = com_strdup(sv_tmp.data);
-		free(sv_tmp.data);
-		sv_tmp.data = NULL;
-	}
+	field.type = sv->type;
+	field.length = sv->length;
+	field.power = sv->power;
+	sv->realdata = set_realdata(&field);
 }
 
 static void
@@ -2765,479 +2623,28 @@ create_coboldata_lowvalue(SQLVAR *sv, int index){
 	if(_occurs_is_parent){
 		caddr += index * _occurs_length;
 	}else{
-		caddr += index * sv->length;
+		caddr += index * get_sqlvar_byte_length(sv);
 	}
 	addr = caddr;
 
-	memset(addr,0,sv->length);
+	memset(addr,0,get_sqlvar_byte_length(sv));
 
 	return;
 }
 static void
 create_coboldata(SQLVAR *sv, int index, char *retstr){
-	void *addr = sv->addr;
-	int tmp_len = 0;
-
-	char *caddr = addr;
+	COBOLFIELD field;
+	field.addr = sv->addr;
 	if(_occurs_is_parent){
-		caddr += index * _occurs_length;
+		field.addr += index * _occurs_length;
 	}else{
-		caddr += index * sv->length;
+		field.addr += index * get_sqlvar_byte_length(sv);
 	}
-	addr = caddr;
-
-	switch(sv->type){
-	case OCDB_TYPE_UNSIGNED_NUMBER:
-	{
-		char *ptr;
-
-		int fillzero;
-		int zcount;
-		char *final;
-		int finalbuflen;
-
-		// fill zero
-		finalbuflen = sv->length + TERMINAL_LENGTH;
-		final = (char *)calloc(finalbuflen, sizeof(char));
-
-		// before decimal point
-		int beforedp = 0;
-		for(ptr = retstr; *ptr != '\0'; ptr++){
-			if(*ptr == '.'){
-				break;
-			} else {
-				beforedp++;
-			}
-		}
-
-		fillzero = sv->length - beforedp + sv->power;
-		for(zcount = 0; zcount < fillzero; zcount++){
-			final[zcount] = '0';
-		}
-		memcpy(final + fillzero, retstr, beforedp);
-
-		if(sv->power < 0){
-			int afterdp = 0;
-
-			if(*ptr != '\0'){
-				ptr++;
-
-				// after decimal point
-				for(; *ptr != '\0'; ptr++){
-					afterdp++;
-				}
-
-				// fill zero
-				memcpy(final + fillzero + beforedp,
-					   retstr + beforedp + DECIMAL_LENGTH, afterdp);
-			}
-
-			fillzero = - sv->power - afterdp;
-			for(zcount = 0; zcount < fillzero; zcount++){
-				final[zcount] = '0';
-			}
-		}
-
-		memcpy(addr, final, sv->length);
-		free(final);
-		break;
-	}
-	case OCDB_TYPE_SIGNED_NUMBER_TC:
-	{
-		char *value;
-		char *ptr;
-		int is_negative = false;
-
-		int fillzero;
-		int zcount;
-		char *final;
-		int finalbuflen;
-		int final_length;
-
-		// fill zero
-		finalbuflen = sv->length;
-		final = (char *)calloc(finalbuflen, sizeof(char));
-
-		if(retstr[0] == '-'){
-			is_negative = true;
-			value = retstr + 1;
-		} else {
-			value = retstr;
-		}
-
-		// before decimal point
-		int beforedp = 0;
-		for(ptr = value; *ptr != '\0'; ptr++){
-			if(*ptr == '.'){
-				break;
-			} else {
-				beforedp++;
-			}
-		}
-
-		fillzero = sv->length - beforedp + sv->power;
-		for(zcount = 0; zcount < fillzero; zcount++){
-			final[zcount] = '0';
-		}
-		memcpy(final + fillzero, value, beforedp);
-
-		if(sv->power < 0){
-			int afterdp = 0;
-
-			if(*ptr != '\0'){
-				ptr++;
-
-				// after decimal point
-				for(; *ptr != '\0'; ptr++){
-					afterdp++;
-				}
-				memcpy(final + fillzero + beforedp, value +
-					   beforedp + DECIMAL_LENGTH, afterdp);
-			}
-
-			// fill zero
-			fillzero = - sv->power - afterdp;
-			for(zcount = 0; zcount < fillzero; zcount++){
-				final[zcount] = '0';
-			}
-		}
-
-		final_length = strlen(final);
-		if(is_negative){
-			int index = *(final + (final_length - 1)) - '0';
-			final[final_length - 1] = type_tc_negative_final_number[index];
-		}
-
-		memcpy(addr, final, sv->length);
-		free(final);
-		break;
-	}
-	case OCDB_TYPE_SIGNED_NUMBER_LS:
-	{
-		char *value;
-		char *ptr;
-
-		int fillzero;
-		int zcount;
-		char *final;
-		int finalbuflen;
-
-		// fill zero
-		finalbuflen = SIGN_LENGTH +  sv->length + TERMINAL_LENGTH;
-		final = (char *)calloc(finalbuflen, sizeof(char));
-
-		if(retstr[0] == '-'){
-			final[0] = '-';
-			value = retstr + 1;
-		} else {
-			final[0] = '+';
-			value = retstr;
-		}
-
-		// before decimal point
-		int beforedp = 0;
-		for(ptr = value; *ptr != '\0'; ptr++){
-			if(*ptr == '.'){
-				break;
-			} else {
-				beforedp++;
-			}
-		}
-
-		fillzero = sv->length - beforedp + sv->power;
-		for(zcount = 0; zcount < fillzero; zcount++){
-			final[zcount] = '0';
-		}
-		memcpy(final + SIGN_LENGTH + fillzero, value, beforedp);
-
-		if(sv->power < 0){
-			int afterdp = 0;
-
-			if(*ptr != '\0'){
-				ptr++;
-
-				// after decimal point
-				for(; *ptr != '\0'; ptr++){
-					afterdp++;
-				}
-
-				// fill zero
-				memcpy(final + SIGN_LENGTH + fillzero + beforedp,
-					   value + beforedp + DECIMAL_LENGTH, afterdp);
-			}
-
-			fillzero = - sv->power - afterdp;
-			for(zcount = 0; zcount < fillzero; zcount++){
-				final[zcount] = '0';
-			}
-		}
-
-		memcpy(addr, final, sv->length + SIGN_LENGTH);
-		free(final);
-		break;
-	}
-	case OCDB_TYPE_UNSIGNED_NUMBER_PD:
-	{
-		char *value = retstr;
-		char *ptr;
-		int is_negative = false;
-
-		int fillzero;
-		int zcount;
-		char *pre_final;
-		int pre_final_len;
-		char *final;
-
-		double dlength;
-		int skip_first;
-		int i;
-		unsigned char ubit = 0xF0;
-		unsigned char lbit = 0x0F;
-
-		dlength = ceil(((double)sv->length + 1)/2);
-		skip_first = (sv->length + 1) % 2; // 1 -> skip first 4 bits
-
-		pre_final_len = sv->length + TERMINAL_LENGTH;
-		pre_final = (char *)calloc(pre_final_len, sizeof(char));
-
-		// before decimal point
-		int beforedp = 0;
-		for(ptr = value; *ptr != '\0'; ptr++){
-			if(*ptr == '.'){
-				break;
-			} else {
-				beforedp++;
-			}
-		}
-
-		fillzero = sv->length - beforedp + sv->power;
-		for(zcount = 0; zcount < fillzero; zcount++){
-			pre_final[zcount] = '0';
-		}
-		memcpy(pre_final + fillzero, value, beforedp);
-
-		if(sv->power < 0){
-			int afterdp = 0;
-
-			if(*ptr != '\0'){
-				ptr++;
-
-				// after decimal point
-				for(; *ptr != '\0'; ptr++){
-					afterdp++;
-				}
-				memcpy(pre_final + fillzero + beforedp,
-					   value + beforedp + DECIMAL_LENGTH, afterdp);
-			}
-
-			// fill zero
-			fillzero = - sv->power - afterdp;
-			for(zcount = 0; zcount < fillzero; zcount++){
-				pre_final[zcount] = '0';
-			}
-		}
-
-		// format setting
-		final = (char *)calloc((int)dlength + TERMINAL_LENGTH, sizeof(char));
-		ptr = pre_final;
-		for(i=0; i<dlength; i++){
-			unsigned char vubit = 0x00;
-			unsigned char vlbit = 0x00;
-
-			if(i == 0 && skip_first){
-				vubit = 0x00;
-			} else {
-				vubit = (*ptr) << 4;
-				vubit = vubit & ubit;
-				ptr++;
-			}
-
-			if(i != dlength - 1){
-				vlbit = *ptr;
-				vlbit = vlbit & lbit;
-				ptr++;
-			} else {
-				vlbit = 0x0F;
-			}
-
-			final[i] = vubit | vlbit;
-		}
-
-		memcpy(addr, final, (int)dlength);
-		free(pre_final);
-		free(final);
-		break;
-	}
-	case OCDB_TYPE_SIGNED_NUMBER_PD:
-	{
-		char *value;
-		char *ptr;
-		int is_negative = false;
-
-		int fillzero;
-		int zcount;
-		char *pre_final;
-		int pre_final_len;
-		char *final;
-
-		double dlength;
-		int skip_first;
-		int i;
-		unsigned char ubit = 0xF0;
-		unsigned char lbit = 0x0F;
-
-		dlength = ceil((double)(sv->length + 1)/2);
-		skip_first = (sv->length + 1) % 2; // 1 -> skip first 4 bits
-
-		if(retstr[0] == '-'){
-			is_negative = true;
-			value = retstr + 1;
-		} else {
-			value = retstr;
-		}
-
-		pre_final_len = (int)dlength + TERMINAL_LENGTH;
-		pre_final = (char *)calloc(pre_final_len, sizeof(char));
-
-		// before decimal point
-		int beforedp = 0;
-		for(ptr = value; *ptr != '\0'; ptr++){
-			if(*ptr == '.'){
-				break;
-			} else {
-				beforedp++;
-			}
-		}
-
-		fillzero = sv->length - beforedp + sv->power;
-		for(zcount = 0; zcount < fillzero; zcount++){
-			pre_final[zcount] = '0';
-		}
-		memcpy(pre_final + fillzero, value, beforedp);
-
-		if(sv->power < 0){
-			int afterdp = 0;
-
-			if(*ptr != '\0'){
-				ptr++;
-
-				// after decimal point
-				for(; *ptr != '\0'; ptr++){
-					afterdp++;
-				}
-				memcpy(pre_final + fillzero + beforedp,
-					   value + beforedp + DECIMAL_LENGTH, afterdp);
-			}
-
-			// fill zero
-			fillzero = - sv->power - afterdp;
-			for(zcount = 0; zcount < fillzero; zcount++){
-				pre_final[zcount] = '0';
-			}
-		}
-
-		// format setting
-		final = (char *)calloc((int)dlength + TERMINAL_LENGTH, sizeof(char));
-		ptr = pre_final;
-		for(i=0; i<dlength; i++){
-			unsigned char vubit = 0x00;
-			unsigned char vlbit = 0x00;
-
-			if(i == 0 && skip_first){
-				vubit = 0x00;
-			} else {
-				vubit = (*ptr) << 4;
-				vubit = vubit & ubit;
-				ptr++;
-			}
-
-			if(i != dlength - 1){
-				vlbit = *ptr;
-				vlbit = vlbit & lbit;
-				ptr++;
-			} else {
-				if(is_negative){
-					vlbit = 0x0D;
-				} else {
-					vlbit = 0x0C;
-				}
-			}
-
-			final[i] = vubit | vlbit;
-		}
-
-		memcpy(addr, final, (int)dlength);
-		free(pre_final);
-		free(final);
-		break;
-	}
-	case OCDB_TYPE_ALPHANUMERIC:
-		// 文字の長さだけメモリコピー
-		if(strlen(retstr) >= sv->length){
-			memcpy(addr, retstr, sv->length);
-		}else{
-			memset(addr,' ',sv->length);
-			memcpy(addr,retstr,strlen(retstr));
-		}
-		break;
-	case OCDB_TYPE_JAPANESE:
-		// 文字の長さだけメモリコピー
-		if(strlen(retstr) >= sv->length*2){
-			memcpy(addr, retstr, sv->length*2);
-		}else{
-			int i;
-			char *tmp = (char *)addr;
-			for(i=0;i+1<sv->length*2;i=i+2){
-				tmp[i] = 0x81;
-				tmp[i+1] = 0x40;
-			}
-			memcpy(addr,retstr,strlen(retstr));
-		}
-		break;
-	case OCDB_TYPE_ALPHANUMERIC_VARYING:
-		if(strlen(retstr) >= sv->length){
-			tmp_len = sv->length;
-			memcpy(addr, &tmp_len, OCDB_VARCHAR_HEADER_BYTE);
-			memcpy((char *)addr + OCDB_VARCHAR_HEADER_BYTE, retstr, sv->length);
-		} else {
-			tmp_len = strlen(retstr);
-			memcpy(addr, &tmp_len, OCDB_VARCHAR_HEADER_BYTE);
-			memset((char *)addr + OCDB_VARCHAR_HEADER_BYTE,' ',sv->length);
-			memcpy((char *)addr + OCDB_VARCHAR_HEADER_BYTE,retstr,strlen(retstr));
-		}
-		LOG("VARYING-LEN:%d\n",tmp_len);
-		break;
-	case OCDB_TYPE_JAPANESE_VARYING:
-		if(strlen(retstr) >= sv->length*2){
-			tmp_len = sv->length;
-			memcpy(addr, &tmp_len, OCDB_VARCHAR_HEADER_BYTE);
-			memcpy(addr, retstr, sv->length*2);
-		}else{
-			int i;
-			char *tmp = (char *)((char *)addr+OCDB_VARCHAR_HEADER_BYTE);
-			for(i=0;i+1<sv->length*2;i=i+2){
-				tmp[i] = 0x81;
-				tmp[i+1] = 0x40;
-			}
-			tmp_len = strlen(retstr)/2;
-			memcpy(addr, &tmp_len, OCDB_VARCHAR_HEADER_BYTE);
-			memcpy((char *)addr + OCDB_VARCHAR_HEADER_BYTE,retstr,tmp_len*2);
-		}
-		LOG("VARYING-LEN:%d\n",tmp_len);
-		break;
-	default:
-		break;
-	}
-#ifndef NDEBUG
-	char *tmp;
-	if(sv->type == OCDB_TYPE_JAPANESE){
-		tmp = oc_strndup((char *)addr,sv->length*2);
-	}else{
-		tmp = oc_strndup((char *)addr,sv->length);
-	}
-	LOG("%d %d#%s#%s#\n", sv->type, sv->length, retstr, tmp);
-	if(tmp) free(tmp);
-#endif
+	field.type = sv->type;
+	field.length = sv->length;
+	field.power = sv->power;
+
+	set_coboldata(&field, retstr);
 }
 
 static int
@@ -3326,7 +2733,7 @@ static void show_sql_var_list(SQLVARLIST *p){
  *   clear_sql_var_list
  *
  * <Outline>
- *   埋め込みSQLリストのメモリ解放
+ *   $BKd$a9~$_(BSQL$B%j%9%H$N%a%b%j2rJ|(B
  *
  * <Input>
  *   @SQLVARLIST *
@@ -3335,11 +2742,60 @@ static void
 clear_sql_var_list(SQLVARLIST *p){
 	if(p != NULL){
 		clear_sql_var_list(p->next);
-		if(p->sv.data)
-			free(p->sv.data);
 		if(p->sv.realdata)
 			free(p->sv.realdata);
 		free(p);
+	}
+}
+
+static int
+OCESQLResultStatus(int id){
+	//dummy
+	return 0;
+}
+
+/*
+ * <Function name>
+ *   _ocesqlResultStatus
+ *
+ * <Outline>
+ *   $B7k2L$r<hF@$7!"(BESQL$B$NJV$jCM$KK]Lu$7$FJV$9(B
+ *
+ * <Input>
+ *   @id: connectId
+ *
+ * <Output>
+ *   status
+ */
+static void
+_ocesqlResultStatus(int id, struct sqlca_t *st){
+	char* state;
+	char* errmsg;
+	int statelen,errlen;
+
+	st->sqlcode = OCDBResultStatus(id);
+	LOG("SQLCODE:%d\n",st->sqlcode);
+	state = OCDBResultErrorField(id);
+	if(state){
+		LOG("STATE:%s\n",state);
+		statelen = strlen(state);
+		if(statelen >= SQLSTATE_LEN) statelen = SQLSTATE_LEN;
+		strncpy(st->sqlsubcode, state, statelen);
+	}
+	errmsg = OCDBResultErrorMessage(id);
+	if(errmsg){
+		LOG("MESSAGE:%s\n",errmsg);
+		errlen = strlen(errmsg);
+		if(errlen >= SQLERRMC_LEN) errlen = SQLERRMC_LEN;
+		strncpy(st->sqlerrm.sqlerrmc, errmsg, errlen);
+		st->sqlerrm.sqlerrml = errlen;
+
+	}
+
+	st->sqlerrd[2] = OCDBCmdTuples(id);
+
+	if(st->sqlcode < 0){
+		ERRLOG("STATE:%s, MESSAGE:%s\n",state,errmsg);
 	}
 }
 
@@ -3361,7 +2817,7 @@ _ocesqlResolveCONNID(struct sqlca_t *st, char *atdb, int atdblen){
 	id = OCDBResolveCONNID(cid);
 	if(id == RESULT_FAILED){
 		ERRLOG("connection name %s is not found in connection list.\n", cid);
-		OCDBSetLibErrorStatus(st,OCDB_EMPTY);
+		st->sqlcode = OCDB_RES_ARGUMENT_ERROR;
 		free(cid);
 		return RESULT_FAILED;
 	}
@@ -3375,7 +2831,7 @@ _ocesqlResolveCONNID(struct sqlca_t *st, char *atdb, int atdblen){
  *   new_cursor_list
  *
  * <Outline>
- *   CURSORリスト生成
+ *   CURSOR$B%j%9%H@8@.(B
  */
 static CURSORLIST *
 new_cursor_list(void){
@@ -3401,10 +2857,10 @@ new_cursor_list(void){
  *   add_cursor_list
  *
  * <Outline>
- *   DeclareCursorで定義されたCURSORをリストに登録する
+ *   DeclareCursor$B$GDj5A$5$l$?(BCURSOR$B$r%j%9%H$KEPO?$9$k(B
  *
  * <Input>
- *   id : 接続ID
+ *   id : $B@\B3(BID
  *   cname : CURSOR NAME
  *   query : query
  *   nParams : number of parameters
@@ -3443,10 +2899,10 @@ add_cursor_list(int id, char *cname, char *query, int nParams){
 			return RESULT_ERROR;
 		}
 		p = p->next;
-		p->cname = com_strdup(cname);
+		p->cname = _strdup(cname);
 	}
 	p->connid = id;
-	p->query = com_strdup(query);
+	p->query = _strdup(query);
 	p->nParams = nParams;
 	p->plist = NULL;
 	p->isOpened = 0;
@@ -3479,16 +2935,8 @@ add_cursor_list(int id, char *cname, char *query, int nParams){
 			current->sv.length = sp->sv.length;
 			current->sv.power = sp->sv.power;
 			current->sv.addr = sp->sv.addr;
-			current->sv.data = calloc(sp->sv.length + TERMINAL_LENGTH, sizeof(char));
 
-			if (!current->sv.data){
-				ERRLOG("current->sv.data allocation failed.\n");
-				return RESULT_ERROR;
-			}
-			memcpy(current->sv.data, sp->sv.data, sp->sv.length);
-			LOG("current->sv.data=#%s#\n", current->sv.data);
-
-			current->sv.realdata = com_strdup(sp->sv.realdata);
+			current->sv.realdata = _strdup(sp->sv.realdata);
 
 			sp = sp->next;
 			current = current->next;
@@ -3522,7 +2970,7 @@ add_cursor_list_with_prepare(int id, char *cname, PREPARELIST *prepare){
 			return RESULT_ERROR;
 		}
 		p = p->next;
-		p->cname = com_strdup(cname);
+		p->cname = strdup(cname);
 	}
 	p->connid = id;
 	p->sp = prepare;
@@ -3538,7 +2986,7 @@ add_cursor_list_with_prepare(int id, char *cname, PREPARELIST *prepare){
  *   remove_cursor_list
  *
  * <Outline>
- *   DeclareCursorで定義されたCURSORをリストに登録する
+ *   DeclareCursor$B$GDj5A$5$l$?(BCURSOR$B$r%j%9%H$KEPO?$9$k(B
  *
  * <Input>
  *   cname : CURSOR NAME
@@ -3577,7 +3025,7 @@ static void show_cursor_list(CURSORLIST *p){
  *   clear_sql_var_list
  *
  * <Outline>
- *   CURSORリストのメモリ解放
+ *   CURSOR$B%j%9%H$N%a%b%j2rJ|(B
  *
  * <Input>
  *   @CURSORLIST *
@@ -3601,13 +3049,13 @@ _clear_cursor_list(CURSORLIST *p, int id){
  *   get_cursor_list_connid
  *
  * <Outline>
- *   引数のcnameと一致するCURSOR情報を返す
+ *   $B0z?t$N(Bcname$B$H0lCW$9$k(BCURSOR$B>pJs$rJV$9(B
  *
  * <Input>
  *   cname : CURSOR NAME
  *
  * <Output>
- *   success : CURSORLIST変数
+ *   success : CURSORLIST$BJQ?t(B
  *   failure : RESULT_FAILED
  */
 static CURSORLIST *
@@ -3651,6 +3099,7 @@ new_prepare_list(){
 	p = (PREPARELIST *)malloc(sizeof(PREPARELIST));
 	if(p != NULL){
 		// initialize
+//		p->sq = (struct query_info *)malloc(sizeof(struct query_info));
 		p->sq.pname = NULL;
 		p->sq.query = NULL;
 		p->sq.nParams = 0;
@@ -3689,7 +3138,7 @@ add_prepare_list(char *sname, char *query, int nParams){
 				return NULL;
 		}
 		p = p->next;
-		p->sq.pname = com_strdup(sname);
+		p->sq.pname = strdup(sname);
 	}
 	p->sq.query = query;
 	p->sq.nParams = nParams;
@@ -3731,6 +3180,68 @@ get_prepare_from_list(char *sname){
 	return ret;
 }
 
+static int
+get_sqlvar_byte_length(SQLVAR *sv){
+	if(sv == NULL) return 0;
+	
+	if(sv->type == OCDB_TYPE_JAPANESE ||
+	   sv->type == OCDB_TYPE_JAPANESE_VARYING){
+		return sv->length * 2;
+	} else if(sv->type == OCDB_TYPE_UNSIGNED_NUMBER_PD ||
+		  sv->type == OCDB_TYPE_SIGNED_NUMBER_PD){
+		return (sv->length / 2) + 1;
+	}
 
+	return sv->length;
+}
 
+/*
+ * <Function name>
+ *   is_group_occurs_param_set
+ *
+ * <Outline>
+ *   $B7+JV$79`L\$KCM$,@_Dj$5$l$F$$$k$+$I$&$+$r%A%'%C%/(B
+ *   ($B=8CD9`L\(B / _occurs_is_parent = true $B$N$_BP>]$H$9$k(B)
+ *
+ * <Input>
+ *   p : SQLVARLIST$B7?$NJQ?t(B
+ *   index : $B7+$jJV$72s?t(B
+ *
+ * <Output>
+ *   $BCM$,@_Dj$5$l$F$$$k(B,$BBP>]30(B : RESULT_SUCCESS
+ *   $BCM$,@_Dj$5$l$F$$$J$$(B(LOW-VALUE) : RESULT_FAILED
+ */
+static int is_group_occurs_param_set(SQLVARLIST *psvl, int index){
+	LOG("#start is_group_occurs_param_set\n");
 
+	COBOLFIELD start;
+	if(_occurs_is_parent){
+		LOG("#_occurs_is_parent: true\n");
+		start.addr = psvl->sv.addr;
+		start.addr += index * _occurs_length;
+
+		if(is_low_value((char *)start.addr, _occurs_length)){
+			LOG("#failed: low_value\n");
+			return RESULT_FAILED;
+		}
+	} else {
+		LOG("#_occurs_is_parent: false\n");	  
+
+		SQLVARLIST *p = psvl;
+		int i;
+		for(i=0; i<_var_lists_length; i++, p=p->next){
+			start.addr = p->sv.addr;
+
+			int len = get_sqlvar_byte_length(&p->sv);
+			start.addr += index * len;
+
+			if(is_low_value((char *)start.addr, len)){
+				LOG("#failed: low_value\n");
+				return RESULT_FAILED;
+			}
+		}
+	}
+
+	LOG("#success: not low_value\n");
+	return RESULT_SUCCESS;
+}

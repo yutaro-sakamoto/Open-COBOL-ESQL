@@ -1,22 +1,3 @@
-﻿/*
- * Copyright (C) 2015 Tokyo System House Co.,Ltd.
- *
- * This library is free software; you can redistribute it and/or
- * modify it under the terms of the GNU Lesser General Public License
- * as published by the Free Software Foundation; either version 2.1,
- * or (at your option) any later version.
- *
- * This library is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this library; see the file COPYING.LIB.  If
- * not, write to the Free Software Foundation, 51 Franklin Street, Fifth Floor
- * Boston, MA 02110-1301 USA
- */
-
 #ifndef OCDB_H
 #define OCDB_H
 
@@ -32,14 +13,11 @@ typedef struct lock_conn {
 
 #ifdef PGSQL_MODE_ON
 #include "ocpgsql.h"
-#define OCDB_TUPLES_NODATA OCPG_NOT_FOUND
 #endif
 
 #define RESULT_FAILED -1
 #define RESULT_SUCCESS 0
 #define RESULT_ERROR -2
-#define RESULT_FLAGBASE 10
-#define RESULT_FLAG1_PGSQL_DUMMYOPEN 11
 
 // default resource address
 #define OCDB_RES_DEFAULT_ADDRESS 0
@@ -129,8 +107,10 @@ enum {
 //#define OCDB_TYPE_FORMATTED_WIDE 29         // wide
 #define OCDB_TYPE_ALPHANUMERIC_VARYING 30     // VARYING(PIC X)
 #define OCDB_TYPE_JAPANESE_VARYING 31         // VARYING(PIC N)
+#define OCDB_TYPE_BYTEA 32                    // BYTEA
 #define OCDB_TYPE_MIN 0                       // 型下限
-#define OCDB_TYPE_MAX 32                      // 型上限
+//#define OCDB_TYPE_MAX 32                      // 型上限
+#define OCDB_TYPE_MAX 33                      // 型上限
 
 #define OCDB_TYPE_OPTION_DATE 1
 #define OCDB_TYPE_OPTION_BINARY 2
@@ -169,53 +149,10 @@ enum {
 #define OCDB_RES_LOCKED_RECORD (-40)
 #define OCDB_RES_LOCKED_TABLE (-41)
 
-/* SQLCODE LIST */
-enum{
-	OCDB_NO_ERROR = 1,
-	OCDB_NOT_FOUND,
-	OCDB_OUT_OF_MEMORY,
-	OCDB_UNSUPPORTED,
-	OCDB_TOO_MANY_ARGUMENTS,
-	OCDB_TOO_FEW_ARGUMENTS,
-	OCDB_TOO_MANY_MATCHES,
-	OCDB_DATA_FORMAT_ERROR,
-	OCDB_INT_FORMAT,
-	OCDB_UINT_FORMAT,
-	OCDB_FLOAT_FORMAT,
-	OCDB_NUMERIC_FORMAT,
-	OCDB_INTERVAL_FORMAT,
-	OCDB_DATE_FORMAT,
-	OCDB_TIMESTAMP_FORMAT,
-	OCDB_CONVERT_BOOL,
-	OCDB_EMPTY,
-	OCDB_MISSING_INDICATOR,
-	OCDB_NO_ARRAY,
-	OCDB_DATA_NOT_ARRAY,
-	OCDB_NO_CONN,
-	OCDB_NOT_CONN,
-	OCDB_INVALID_STMT,
-	OCDB_INFORMIX_DUPLICATE_KEY,
-	OCDB_UNKNOWN_DESCRIPTOR,
-	OCDB_INVALID_DESCRIPTOR_INDEX,
-	OCDB_UNKNOWN_DESCRIPTOR_ITEM,
-	OCDB_VAR_NOT_NUMERIC,
-	OCDB_VAR_NOT_CHAR,
-	OCDB_INFORMIX_SUBSELECT_NOT_ONE,
-	OCDB_PGSQL,
-	OCDB_TRANS,
-	OCDB_CONNECT,
-	OCDB_DUPLICATE_KEY,
-	OCDB_SUBSELECT_NOT_ONE,
-	OCDB_WARNING_UNKNOWN_PORTAL,
-	OCDB_WARNING_IN_TRANSACTION,
-	OCDB_WARNING_NO_TRANSACTION,
-	OCDB_WARNING_PORTAL_EXISTS,
-	OCDB_LOCK_ERROR,
-	OCDB_JDD_ERROR
-};
-#define OCDB_UNDEFINED_ERROR -9999
-
 #define OCDB_RES_NOCONNECT_ERRORMSG "Connection is not opened."
+
+#define OCDB_COBOL_BUFFER_SIZE 1024
+#define OCDB_OCCURS_MAX_TIMES 32000
 
 struct s_conn {
 	int id;
@@ -232,6 +169,31 @@ struct conn_list {
 	struct s_conn sc;
 	struct conn_list *next;
 };
+
+
+typedef struct cobolfield{
+	int type;
+	int length;
+	int power;
+	void *addr;
+} COBOLFIELD;
+
+#define OCDB_COLUMN_TYPE_NUMERIC 0
+#define OCDB_COLUMN_TYPE_CHARACTER 1
+#define OCDB_COLUMN_TYPE_UNKNOWN -1
+
+typedef struct column_info{
+	char *name;
+	int type;
+	int character_length;
+	int numeric_precision;
+	int numeric_scale;
+} COLUMN_INFO;
+
+typedef struct column_info_list{
+	struct column_info *column_info;
+	struct column_info_list *next;
+} COLUMN_INFO_LIST;
 
 enum DBTYPE{
 #ifdef PGSQL_MODE_ON
@@ -258,10 +220,15 @@ void OCDBExecParams(int, char *, int, const int *, const char * const *,
 void OCDBCursorDeclare(int, char *, char *, int);
 void OCDBCursorDeclareParams(int, char *, char *, int, const int *,
 		const char * const *, const int *, const int *, int, int);
+int OCDBCountRow(int, char *);
+int OCDBCountRowParams(int, char *, int, const int *,
+		const char * const *, const int *, const int *, int);
 void OCDBCursorOpen(int, char *);
 void OCDBCursorFetchOne(int, char *, int);
 void OCDBCursorFetchOccurs(int, char *, int, int);
 void OCDBCursorClose(int, char *);
+int OCDBResultStatusConvert(int);
+int OCDBResultStatus(int);
 char *OCDBResultErrorMessage(int);
 char *OCDBResultErrorField(int);
 int OCDBCmdTuples(int);
@@ -272,17 +239,34 @@ int OCDBFnumber(int, const char *);
 char *OCDBGetvalue(int, int, int);
 void OCDBDropTable(int, char *);
 void OCDBDeleteTable(int, char *);
+int OCDBIsExistTable(int, char *, char *, int);
+struct column_info_list *OCDBGetTableInfo(int, const char *, const char *);
 void OCDBFinish(int);
 
 int OCDBResolveCONNID(char *);
 
-int OCDBSetResultStatus(int id, struct sqlca_t *);
-int OCDBSetLibErrorStatus(struct sqlca_t *, int);
+int OCDBConnectLockDB(char *, char *);
+int OCDBCreateLockData(int, LOCK_CONN *, char *);
+int OCDBCheckLockTable(int, LOCK_CONN *, char *);
+int OCDBWriteLockTable(int, LOCK_CONN *, char *);
+int OCDBDeleteLockTable(int, LOCK_CONN *, char *);
+int OCDBDeleteLockTableAll(int);
+int OCDBCheckOpenTable(int, LOCK_CONN *, int, int);
+int OCDBWriteOpenTable(int, LOCK_CONN *, int, int);
+int OCDBDeleteOpenTable(int, LOCK_CONN *);
+int OCDBIsLockTable(int, char *, int, int);
+int OCDBLockTable(int, char *, int, int, int);
 
 /* common APIs */
 char *_alloc(long);
+char *_strdup(const char *);
 char *last_dir_separator(const char *);
 int strlen_or_null(const char *);
+int set_coboldata(COBOLFIELD *, char *);
+char *set_realdata(COBOLFIELD *);
+struct column_info_list *info_list_generate(void);
+struct column_info_list *add_info_list(struct column_info_list *, char *, int, int, int, int);
+void info_list_finish(struct column_info_list *);
 
 #define skip_drive(path)	(path)
 
