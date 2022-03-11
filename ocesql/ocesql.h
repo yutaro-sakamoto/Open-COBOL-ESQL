@@ -40,6 +40,7 @@
 #define PIC_ALPHANUMERIC		(PIC_ALPHABETIC | PIC_NUMERIC)
 #define PIC_ALPHANUMERIC_VARYING	(PIC_ALPHANUMERIC | PIC_VARYING)
 #define PIC_NATIONAL_VARYING	        (PIC_NATIONAL | PIC_VARYING)
+#define PIC_SQL_BYTEA       0x10
 
 #define HVARTYPE_UNSIGNED_NUMERIC 1
 #define HVARTYPE_SIGNED_TRAILING_SEPARATE 2
@@ -56,6 +57,7 @@
 #define HVARTYPE_NATIONAL 24
 #define HVARTYPE_ALPHANUMERIC_VARYING 30
 #define HVARTYPE_JAPANESE_VARYING 31
+#define HVARTYPE_SQLBYTEA 32
 
 #define CODE_CR '\r'
 #define CODE_LF '\n'
@@ -136,6 +138,7 @@ struct cb_exec_list {
 	char *sqlName;
 	char *incfileName;
 	struct cb_field *varname;
+	struct cb_field *sqlbyteaname;
 	struct cb_exec_list *next;
 };
 
@@ -197,6 +200,7 @@ extern char cursorname[BUFFSIZE];
 extern char sqlname[BUFFSIZE];
 extern int sqlnum;
 extern struct cb_field *var_varying;
+extern struct cb_field *var_sqlbytea;
 extern char *yytext;
 extern int hostreferenceCount;
 extern char incfilename[BUFFSIZE];

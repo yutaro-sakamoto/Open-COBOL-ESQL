@@ -56,6 +56,7 @@ char sqlname[BUFFSIZE];
 int sqlnum = 0;
 char incfilename[BUFFSIZE];
 struct cb_field *var_varying;
+struct cb_field *var_sqlbytea;
 
 int flag_insqlstring = 0;
 int flag_selectcommand = 0;
@@ -547,6 +548,7 @@ INT_CONSTANT {digit}+
 	command_putother = 0;
         sql_list = NULL;
 	var_varying = NULL;            
+	var_sqlbytea = NULL;
 
         return WORKINGBEGIN;
 }
@@ -623,6 +625,7 @@ INT_CONSTANT {digit}+
 	command_putother = 0;
         sql_list = NULL;
 	var_varying = NULL;            
+	var_sqlbytea = NULL;
 
         BEGIN INITIAL;
         return WORKINGEND;
@@ -680,6 +683,27 @@ INT_CONSTANT {digit}+
         
                 return VARYING;
          }
+
+		 "SQL-BYTEA" {
+ 			startlineno = yylineno;
+			endlineno = yylineno;
+			host_reference_list = NULL;
+			res_host_reference_list = NULL;
+			memset(dbname,0,sizeof(dbname));
+			memset(prepname,0,sizeof(prepname));
+			memset(commandname,0,sizeof(commandname));
+			strcpy(commandname,"SQL_BYTEA_PARAM");
+			memset(cursorname,0,sizeof(cursorname));
+			memset(sqlname,0,sizeof(sqlname));
+			memset(incfilename,0,sizeof(incfilename));
+			hostreferenceCount = 0;
+			conn_use_other_db = 0;
+			command_putother = 0;
+			sql_list = NULL;
+			var_sqlbytea = NULL;
+			return SQL_BYTEA;
+		 }
+
          "TIMES"  { return TIMES;}
          "ALL"  { return ALL ;}
          {STRVALUE}|{HEXVALUE} { return CONST;}

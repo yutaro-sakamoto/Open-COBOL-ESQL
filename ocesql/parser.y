@@ -27,6 +27,7 @@
 
 #include "ocesql.h"
 #include "ocesqlutil.h"
+#include "define.h"
 
 	static void put_exec_list();
 	int cb_get_level(int level);
@@ -113,6 +114,7 @@
 %token TIMES
 %token CONST
 %token WHERECURRENTOF
+%token SQL_BYTEA
 
 %type <l> token_list declaresql includesql incfile preparesql execsql
 %type <l> opensql selectintosql select insertsql insert updatesql
@@ -412,6 +414,7 @@ picture_clause
 | value_clause
 | external_clause
 | varying_clause
+| sqlbytea_clause
 ;
 
 picture_clause:
@@ -448,6 +451,20 @@ VARYING
 	put_exec_list();
 }
 ;
+
+sqlbytea_clause:
+SQL_BYTEA
+{
+	if(current_field->pictype != PIC_ALPHANUMERIC){
+		printf("parse error: current_field->pictype = %d \n",current_field->pictype);
+		printf("parse error: %s specified the data types are not available to SQL-BYTEA\n",
+		       current_field->sname);
+		exit(-1);
+	}
+
+	var_sqlbytea = current_field;
+	put_exec_list();
+}
 
 value_clause: VALUE _is_are _all const_clause {}
 
@@ -524,6 +541,7 @@ put_exec_list()
 	l->sqlName = com_strdup(sqlname);
 	l->incfileName = com_strdup(incfilename);
 	l->varname = var_varying;
+	l->sqlbyteaname = var_sqlbytea;
 	l->next = NULL;
 
 	if (exec_list == NULL)
@@ -638,6 +656,9 @@ int gethostvarianttype(char *name,  int *type, int *digits, int *scale)
 			break;
 		case PIC_NATIONAL_VARYING:
 			tmp_type =  HVARTYPE_JAPANESE_VARYING;
+			break;
+		case PIC_SQL_BYTEA:
+			tmp_type = HVARTYPE_SQLBYTEA;
 			break;
 		default:
 			break;

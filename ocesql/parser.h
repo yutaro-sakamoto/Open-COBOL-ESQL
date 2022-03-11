@@ -106,7 +106,8 @@ extern int yydebug;
     EXTERNAL = 312,
     TIMES = 313,
     CONST = 314,
-    WHERECURRENTOF = 315
+    WHERECURRENTOF = 315,
+    SQL_BYTEA = 316
   };
 #endif
 /* Tokens.  */
@@ -168,19 +169,20 @@ extern int yydebug;
 #define TIMES 313
 #define CONST 314
 #define WHERECURRENTOF 315
+#define SQL_BYTEA 316
 
 /* Value type.  */
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 51 "parser.y"
+#line 52 "parser.y"
 
 	char *s;
 	long int ld;
 	struct cb_sql_list	*l;
 	struct cb_hostreference_list *h;
 
-#line 184 "parser.h"
+#line 186 "parser.h"
 
 };
 typedef union YYSTYPE YYSTYPE;
