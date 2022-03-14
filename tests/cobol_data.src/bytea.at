@@ -19,7 +19,7 @@ AT_DATA([prog.cbl], [
 
          03 TEST-DATA-TABLE-A REDEFINES TEST-DATA-TABLE.
            05 TEST-DATA-TABLE-B OCCURS(5).
-             07 TEST-DATA PIC X(20) SQL-BYTEA
+             07 TEST-DATA PIC X(20) SQL-BYTEA.
 
 
        01  READ-TABLE.
