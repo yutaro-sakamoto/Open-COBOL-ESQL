@@ -61,5 +61,6 @@ void com_fprint_elog(FILE *, const char *, const char *);
 int com_putenv(const char *, const char *);
 char *com_replace(char *, const char *, const char *); 
 
+void oc_memrep(char *, int , int);
 
 #endif

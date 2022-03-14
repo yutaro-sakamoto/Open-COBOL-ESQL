@@ -628,3 +628,20 @@ com_replace(char* src, const char* before, const char* after) {
 
 	return src;
 }
+
+void oc_memrep(char *src, int n, int mode){
+	int i;
+	int y;
+
+	for(i=0;i<=n;i++){
+		if(mode == 1) {
+        	if(src[i] == 0x00) {
+          		src[i] = 0x7f;
+			}
+		} else {
+			if(src[i] == 0x7f) {
+				src[i] = 0x00;
+			}
+		}
+	}
+}

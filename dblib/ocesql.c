@@ -808,15 +808,67 @@ _ocesqlExecParams(struct sqlca_t *st, int id, char *query, int nParams){
 		return;
 	}
 
+	SQLVARLIST *p_res = _sql_res_var_lists;
+	int inpatambytea = 0;
+	int outpatambytea = 0;
+	
+	int *paramLengths = NULL;
+	int *paramFormats = NULL;
+
+	if((paramLengths = (int *)malloc(sizeof(int *) * nParams)) == NULL){
+		st->sqlcode = OCDB_RES_ALLOCATE_ERROR;
+		return;
+	}
+	if((paramFormats = (int *)malloc(sizeof(int *) * nParams)) == NULL){
+		st->sqlcode = OCDB_RES_ALLOCATE_ERROR;
+		return;
+	}
+
 	// set parameters
 	for(i=0; i<_var_lists_length; i++, p=p->next){
 		arr[i] = p->sv.realdata;
+
+		paramLengths[i] = p->sv.length;
+		if(p->sv.type == OCDB_TYPE_BYTEA) {
+			paramFormats[i] = 1;
+			inpatambytea = 1;
+		} else {
+			paramFormats[i] = 0;
+		}
 	}
 
-	OCDBExecParams(id, query, nParams, NULL,
+	for(i=0; i<_res_var_lists_length; i++, p_res=p_res->next){
+		if(p_res->sv.type == OCDB_TYPE_BYTEA) {
+			outpatambytea = 1;
+		}
+	}
+
+	if (outpatambytea == 0) {
+		if (inpatambytea == 1) {
+			LOG("inpatambytea2 = 1 outpatambytea = 0 \n");
+			OCDBExecParams(id, query, nParams, NULL,
+				   (const char * const *)arr, (const int *)paramLengths, (const int *)paramFormats, 0);
+		} else {
+			LOG("inpatambytea2 = 0 outpatambytea = 0 \n");
+			OCDBExecParams(id, query, nParams, NULL,
 				   (const char * const *)arr, NULL, NULL, 0);
+		} 
+	} else {
+		if (inpatambytea == 1) {
+			LOG("inpatambytea2 = 1 outpatambytea = 1 \n");
+			OCDBExecParams(id, query, nParams, NULL,
+				   (const char * const *)arr, (const int *)paramLengths, (const int *)paramFormats, 1);
+		} else {
+			LOG("inpatambytea2 = 0 outpatambytea = 1 \n");
+			OCDBExecParams(id, query, nParams, NULL,
+				   (const char * const *)arr, NULL, NULL, 1);
+		}
+	}
+
 	if(arr != NULL){
 		free(arr);
+		free(paramLengths);
+		free(paramFormats);
 	}
 
 	if(OCDBSetResultStatus(id,st) != RESULT_SUCCESS){
@@ -2700,6 +2752,7 @@ create_realdata(SQLVAR *sv,int index){
 		memcpy(sv_tmp.realdata, (char *)addr, length);
 		LOG("%d %d->%d#%s#%s#\n", sv_tmp.type, length, sv_tmp.length, (char *)sv_tmp.data, (char *)sv_tmp.realdata);
 		break;
+	case OCDB_TYPE_BYTEA:
 	case OCDB_TYPE_ALPHANUMERIC_VARYING:
 	{
 		int lensize = 0;
@@ -3195,6 +3248,7 @@ create_coboldata(SQLVAR *sv, int index, char *retstr){
 		}
 		break;
 	case OCDB_TYPE_ALPHANUMERIC_VARYING:
+	case OCDB_TYPE_BYTEA:
 		if(strlen(retstr) >= sv->length){
 			tmp_len = sv->length;
 			memcpy(addr, &tmp_len, OCDB_VARCHAR_HEADER_BYTE);
@@ -3204,6 +3258,12 @@ create_coboldata(SQLVAR *sv, int index, char *retstr){
 			memcpy(addr, &tmp_len, OCDB_VARCHAR_HEADER_BYTE);
 			memset((char *)addr + OCDB_VARCHAR_HEADER_BYTE,' ',sv->length);
 			memcpy((char *)addr + OCDB_VARCHAR_HEADER_BYTE,retstr,strlen(retstr));
+		}
+		if (sv->type == OCDB_TYPE_BYTEA){
+			oc_memrep(retstr, tmp_len, 0);
+			memcpy((char *)addr,retstr,tmp_len);
+		} else {
+			memcpy((char *)addr + OCDB_VARCHAR_HEADER_BYTE, retstr, tmp_len);
 		}
 		LOG("VARYING-LEN:%d\n",tmp_len);
 		break;

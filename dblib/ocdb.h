@@ -129,8 +129,9 @@ enum {
 //#define OCDB_TYPE_FORMATTED_WIDE 29         // wide
 #define OCDB_TYPE_ALPHANUMERIC_VARYING 30     // VARYING(PIC X)
 #define OCDB_TYPE_JAPANESE_VARYING 31         // VARYING(PIC N)
+#define OCDB_TYPE_BYTEA 32
 #define OCDB_TYPE_MIN 0                       // 型下限
-#define OCDB_TYPE_MAX 32                      // 型上限
+#define OCDB_TYPE_MAX 33                      // 型上限
 
 #define OCDB_TYPE_OPTION_DATE 1
 #define OCDB_TYPE_OPTION_BINARY 2
