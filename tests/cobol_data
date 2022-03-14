@@ -595,7 +595,8 @@ at_help_all="1;numeric_signed_v.at:1;numeric_signed_v;;
 3;numeric_v.at:1;numeric_v;;
 4;comp5.at:1;COMP-5;;
 5;alphanumeric.at:1;alphanumeric;;
-6;japanese.at:1;japanese;;
+6;bytea.at:1;numeric_v;;
+7;japanese.at:1;japanese;;
 "
 # List of the all the test groups.
 at_groups_all=`$as_echo "$at_help_all" | sed 's/;.*//'`
@@ -609,7 +610,7 @@ at_fn_validate_ranges ()
   for at_grp
   do
     eval at_value=\$$at_grp
-    if test $at_value -lt 1 || test $at_value -gt 6; then
+    if test $at_value -lt 1 || test $at_value -gt 7; then
       $as_echo "invalid test group: $at_value" >&2
       exit 1
     fi
@@ -3331,11 +3332,191 @@ $at_traceon; }
 read at_status <"$at_status_file"
 #AT_STOP_5
 #AT_START_6
-at_fn_group_banner 6 'japanese.at:1' \
-  "japanese" "                                       "
+at_fn_group_banner 6 'bytea.at:1' \
+  "numeric_v" "                                      "
 at_xfail=no
 (
   $as_echo "6. $at_setup_line: testing $at_desc ..."
+  $at_traceon
+
+
+cat >prog.cbl <<'_ATEOF'
+
+       IDENTIFICATION              DIVISION.
+      ******************************************************************
+       PROGRAM-ID.                 prog.
+      ******************************************************************
+       DATA                        DIVISION.
+      ******************************************************************
+       WORKING-STORAGE             SECTION.
+
+       01 TEST-DATA-SECTION.
+         03  TEST-DATA-TABLE.
+           05 FILLER       PIC X(20) VALUE "hello".
+           05 FILLER       PIC X(20) VALUE "1234567890".
+           05 FILLER       PIC X(20) VALUE "!#$%&'()=~|".
+           05 FILLER       PIC X(20) VALUE "".
+           05 FILLER       PIC X(20) VALUE "“ú–{Œê‚Ì•¶Žš—ñ".
+
+         03 TEST-DATA-TABLE-A REDEFINES TEST-DATA-TABLE.
+           05 TEST-DATA-TABLE-B OCCURS(5).
+             07 TEST-DATA PIC X(20) SQL-BYTEA
+
+
+       01  READ-TABLE.
+         03  READ-TABLE-X    OCCURS  5.
+           05  READ-DATA          PIC X(20) SQL-BYTEA.
+
+       EXEC SQL BEGIN DECLARE SECTION END-EXEC.
+       01  DBNAME                  PIC  X(30) VALUE SPACE.
+       01  USERNAME                PIC  X(30) VALUE SPACE.
+       01  PASSWD                  PIC  X(10) VALUE SPACE.
+       EXEC SQL END DECLARE SECTION END-EXEC.
+
+       EXEC SQL INCLUDE SQLCA END-EXEC.
+      ******************************************************************
+       PROCEDURE                   DIVISION.
+      ******************************************************************
+       MAIN-RTN.
+
+       PERFORM SETUP-DB.
+
+      *    SHOW RESULT
+           EXEC SQL
+               SELECT FIELD INTO :READ-TABLE FROM TESTTABLEV ORDER BY N
+           END-EXEC.
+
+           PERFORM VARYING IDX FROM 1 BY 1 UNTIL IDX > 5
+               DISPLAY READ-DATA(IDX)
+           END-PERFORM.
+
+       PERFORM CLEANUP-DB.
+
+      *    END
+           STOP RUN.
+
+      ******************************************************************
+       SETUP-DB.
+      ******************************************************************
+
+      *    SERVER
+           MOVE  "<|DB_NAME|>@<|DB_HOST|>:<|DB_PORT|>"
+             TO DBNAME.
+           MOVE  "<|DB_USER|>"
+             TO USERNAME.
+           MOVE  "<|DB_PASSWORD|>"
+             TO PASSWD.
+
+
+           EXEC SQL
+               CONNECT :USERNAME IDENTIFIED BY :PASSWD USING :DBNAME
+           END-EXEC.
+
+           EXEC SQL
+               DROP TABLE IF EXISTS TESTTABLE
+           END-EXEC.
+
+           EXEC SQL
+                CREATE TABLE TESTTABLE
+                (
+                    N         NUMERIC(2,0) NOT NULL,
+                    FIELD     BYTEA NOT NULL
+                )
+           END-EXEC.
+
+           EXEC SQL
+             INSERT INTO TESTTABLEV VALUES (:IDX, :VV)
+           END-EXEC
+
+      *    COMMIT
+           EXEC SQL
+               COMMIT WORK
+           END-EXEC.
+
+      ******************************************************************
+       CLEANUP-DB.
+      ******************************************************************
+           EXEC SQL
+               DROP TABLE IF EXISTS TESTTABLE
+           END-EXEC.
+
+           EXEC SQL
+               DISCONNECT ALL
+           END-EXEC.
+
+
+_ATEOF
+
+{ set +x
+$as_echo "$at_srcdir/bytea.at:108: ocesql prog.cbl prog.cob > /dev/null"
+at_fn_check_prepare_trace "bytea.at:108"
+( $at_check_trace; ocesql prog.cbl prog.cob > /dev/null
+) >>"$at_stdout" 2>>"$at_stderr" 5>&-
+at_status=$? at_failed=false
+$at_check_filter
+at_fn_diff_devnull "$at_stderr" || at_failed=:
+at_fn_diff_devnull "$at_stdout" || at_failed=:
+at_fn_check_status 0 $at_status "$at_srcdir/bytea.at:108"
+$at_failed && at_fn_log_failure
+$at_traceon; }
+
+{ set +x
+$as_echo "$at_srcdir/bytea.at:109: \${EMBED_DB_INFO} prog.cob"
+at_fn_check_prepare_notrace 'a ${...} parameter expansion' "bytea.at:109"
+( $at_check_trace; ${EMBED_DB_INFO} prog.cob
+) >>"$at_stdout" 2>>"$at_stderr" 5>&-
+at_status=$? at_failed=false
+$at_check_filter
+at_fn_diff_devnull "$at_stderr" || at_failed=:
+at_fn_diff_devnull "$at_stdout" || at_failed=:
+at_fn_check_status 0 $at_status "$at_srcdir/bytea.at:109"
+$at_failed && at_fn_log_failure
+$at_traceon; }
+
+{ set +x
+$as_echo "$at_srcdir/bytea.at:110: \${COMPILE_MODULE} prog.cob"
+at_fn_check_prepare_notrace 'a ${...} parameter expansion' "bytea.at:110"
+( $at_check_trace; ${COMPILE_MODULE} prog.cob
+) >>"$at_stdout" 2>>"$at_stderr" 5>&-
+at_status=$? at_failed=false
+$at_check_filter
+at_fn_diff_devnull "$at_stderr" || at_failed=:
+at_fn_diff_devnull "$at_stdout" || at_failed=:
+at_fn_check_status 0 $at_status "$at_srcdir/bytea.at:110"
+$at_failed && at_fn_log_failure
+$at_traceon; }
+
+{ set +x
+$as_echo "$at_srcdir/bytea.at:111: \${RUN_MODULE} prog 2> /dev/null"
+at_fn_check_prepare_notrace 'a ${...} parameter expansion' "bytea.at:111"
+( $at_check_trace; ${RUN_MODULE} prog 2> /dev/null
+) >>"$at_stdout" 2>>"$at_stderr" 5>&-
+at_status=$? at_failed=false
+$at_check_filter
+at_fn_diff_devnull "$at_stderr" || at_failed=:
+echo >>"$at_stdout"; $as_echo "hello
+12345678
+!#\$%&'(
+
+“ú–{Œê‚Ì•¶Žš—ñ
+" | \
+  $at_diff - "$at_stdout" || at_failed=:
+at_fn_check_status 0 $at_status "$at_srcdir/bytea.at:111"
+$at_failed && at_fn_log_failure
+$at_traceon; }
+
+
+  set +x
+  $at_times_p && times >"$at_times_file"
+) 5>&1 2>&1 7>&- | eval $at_tee_pipe
+read at_status <"$at_status_file"
+#AT_STOP_6
+#AT_START_7
+at_fn_group_banner 7 'japanese.at:1' \
+  "japanese" "                                       "
+at_xfail=no
+(
+  $as_echo "7. $at_setup_line: testing $at_desc ..."
   $at_traceon
 
 
@@ -3525,4 +3706,4 @@ $at_traceon; }
   $at_times_p && times >"$at_times_file"
 ) 5>&1 2>&1 7>&- | eval $at_tee_pipe
 read at_status <"$at_status_file"
-#AT_STOP_6
+#AT_STOP_7

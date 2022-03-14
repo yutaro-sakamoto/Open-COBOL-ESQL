@@ -1,0 +1,119 @@
+AT_SETUP([numeric_v])
+
+AT_DATA([prog.cbl], [
+       IDENTIFICATION              DIVISION.
+      ******************************************************************
+       PROGRAM-ID.                 prog.
+      ******************************************************************
+       DATA                        DIVISION.
+      ******************************************************************
+       WORKING-STORAGE             SECTION.
+
+       01 TEST-DATA-SECTION.
+         03  TEST-DATA-TABLE.
+           05 FILLER       PIC X(20) VALUE "hello".
+           05 FILLER       PIC X(20) VALUE "1234567890".
+           05 FILLER       PIC X(20) VALUE "!#$%&'()=~|".
+           05 FILLER       PIC X(20) VALUE "".
+           05 FILLER       PIC X(20) VALUE "“ú–{Œê‚Ì•¶Žš—ñ".
+
+         03 TEST-DATA-TABLE-A REDEFINES TEST-DATA-TABLE.
+           05 TEST-DATA-TABLE-B OCCURS(5).
+             07 TEST-DATA PIC X(20) SQL-BYTEA
+
+
+       01  READ-TABLE.
+         03  READ-TABLE-X    OCCURS  5.
+           05  READ-DATA          PIC X(20) SQL-BYTEA.
+
+       EXEC SQL BEGIN DECLARE SECTION END-EXEC.
+       01  DBNAME                  PIC  X(30) VALUE SPACE.
+       01  USERNAME                PIC  X(30) VALUE SPACE.
+       01  PASSWD                  PIC  X(10) VALUE SPACE.
+       EXEC SQL END DECLARE SECTION END-EXEC.
+
+       EXEC SQL INCLUDE SQLCA END-EXEC.
+      ******************************************************************
+       PROCEDURE                   DIVISION.
+      ******************************************************************
+       MAIN-RTN.
+
+       PERFORM SETUP-DB.
+
+      *    SHOW RESULT
+           EXEC SQL
+               SELECT FIELD INTO :READ-TABLE FROM TESTTABLEV ORDER BY N
+           END-EXEC.
+
+           PERFORM VARYING IDX FROM 1 BY 1 UNTIL IDX > 5
+               DISPLAY READ-DATA(IDX)
+           END-PERFORM.
+
+       PERFORM CLEANUP-DB.
+
+      *    END
+           STOP RUN.
+
+      ******************************************************************
+       SETUP-DB.
+      ******************************************************************
+
+      *    SERVER
+           MOVE  "<|DB_NAME|>@<|DB_HOST|>:<|DB_PORT|>"
+             TO DBNAME.
+           MOVE  "<|DB_USER|>"
+             TO USERNAME.
+           MOVE  "<|DB_PASSWORD|>"
+             TO PASSWD.
+
+
+           EXEC SQL
+               CONNECT :USERNAME IDENTIFIED BY :PASSWD USING :DBNAME 
+           END-EXEC.
+
+           EXEC SQL
+               DROP TABLE IF EXISTS TESTTABLE
+           END-EXEC.
+
+           EXEC SQL
+                CREATE TABLE TESTTABLE
+                (
+                    N         NUMERIC(2,0) NOT NULL,
+                    FIELD     BYTEA NOT NULL
+                )
+           END-EXEC.
+
+           EXEC SQL
+             INSERT INTO TESTTABLEV VALUES (:IDX, :VV)
+           END-EXEC
+
+      *    COMMIT
+           EXEC SQL
+               COMMIT WORK
+           END-EXEC.
+
+      ******************************************************************
+       CLEANUP-DB.
+      ******************************************************************
+           EXEC SQL
+               DROP TABLE IF EXISTS TESTTABLE
+           END-EXEC.
+
+           EXEC SQL
+               DISCONNECT ALL
+           END-EXEC.
+
+
+])
+AT_CHECK([ocesql prog.cbl prog.cob > /dev/null])
+AT_CHECK([${EMBED_DB_INFO} prog.cob])
+AT_CHECK([${COMPILE_MODULE} prog.cob])
+AT_CHECK([${RUN_MODULE} prog 2> /dev/null], [0],
+[hello
+12345678
+!#$%&'(
+
+“ú–{Œê‚Ì•¶Žš—ñ
+])
+
+AT_CLEANUP
