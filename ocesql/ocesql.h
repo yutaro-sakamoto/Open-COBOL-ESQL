@@ -263,7 +263,7 @@ get_host_group_length(struct cb_field *field, int *length);
 int
 get_host_group_table_info(struct cb_field *field, int *iteration, int *length);
 void
-parameter_split(struct cb_field *vp_parent);
+parameter_split(struct cb_field *vp_parent, char *commandName);
 
 extern int
 openerrorfile(char *filename);

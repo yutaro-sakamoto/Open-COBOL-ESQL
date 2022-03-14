@@ -1460,7 +1460,7 @@ void ppbuff(struct cb_exec_list *list){
 	     char vtmp[256];
 	     vp_parent = l->varname;
 
-	     parameter_split(vp_parent);
+	     parameter_split(vp_parent, l->commandName);
 
 	     vp_len = vp_parent->children;
 	     vp_arr = vp_len->sister;
@@ -1507,6 +1507,65 @@ void ppbuff(struct cb_exec_list *list){
 	     com_sprintf(vtmp,sizeof(vtmp), "%d", vp_arr->picnsize);
 	     com_strcat(out,sizeof(out), vtmp);
 	     com_strcat(out,sizeof(out), ").");
+	     outwrite();
+	}
+
+	if(strcmp(l->commandName,"SQL_BYTEA_PARAM")==0){
+
+	     // modify cb_field
+	     struct cb_field *vp_parent, *vp_len, *vp_arr;
+	     int pstart;
+	     int istart;
+	     char vtmp[256];
+	     vp_parent = l->sqlbyteaname;
+
+	     parameter_split(vp_parent,l->commandName);
+
+	     vp_len = vp_parent->children;
+	     vp_arr = vp_len->sister;
+
+	     // get start position
+	     for(pstart=6;inbuff[pstart]!='\0';pstart++){
+		  if(inbuff[pstart] != ' ')
+		       break;
+	     }
+
+	     strcpy(out,"OCESQL ");
+	     for(istart=7; istart<pstart; istart++){
+		  strcat(out," ");
+	     }
+	     sprintf(vtmp, "%02d", vp_parent->level);
+	     strcat(out, vtmp);
+	     strcat(out," ");
+	     strcat(out, vp_parent->sname);
+	     strcat(out, ".");
+	     outwrite();
+
+	     strcpy(out,"OCESQL ");
+	     for(istart=7; istart<pstart; istart++){
+		  strcat(out," ");
+	     }
+	     strcat(out,"  ");
+	     sprintf(vtmp, "%02d", vp_len->level);
+	     strcat(out, vtmp);
+	     strcat(out," ");
+	     strcat(out, vp_len->sname);
+	     strcat(out, " PIC S9(8) COMP-5.");
+	     outwrite();
+
+	     strcpy(out,"OCESQL ");
+	     for(istart=7; istart<pstart; istart++){
+		  strcat(out," ");
+	     }
+	     strcat(out,"  ");
+	     sprintf(vtmp, "%02d", vp_arr->level);
+	     strcat(out, vtmp);
+	     strcat(out," ");
+	     strcat(out, vp_arr->sname);
+	     strcat(out, " PIC X(");
+	     sprintf(vtmp, "%d", vp_arr->picnsize);
+	     strcat(out, vtmp);
+	     strcat(out, ").");
 	     outwrite();
 	}
 
@@ -2224,7 +2283,7 @@ int get_host_group_table_info(struct cb_field *field, int *iteration, int *lengt
 	return get_host_group_table_info(field->sister, iteration, length);
 }
 
-void parameter_split(struct cb_field *vp_parent){
+void parameter_split(struct cb_field *vp_parent, char *commandName){
 	struct cb_field *vp_len, *vp_arr;
 	char *basename;
 	int varlen;
@@ -2274,12 +2333,14 @@ void parameter_split(struct cb_field *vp_parent){
 	vp_arr->picnsize = varlen;
 	vp_arr->parent = vp_parent;
 	vp_len->sister = vp_arr;
-
+    // bytea
+    if(strcmp(commandName,"SQL_BYTEA_PARAM")==0){
+		vp_parent->pictype = PIC_SQL_BYTEA;
 	// vp_parent
-	if(vp_parent->pictype == PIC_NATIONAL){
-	     vp_parent->pictype = PIC_NATIONAL_VARYING;
+	} else if (vp_parent->pictype == PIC_NATIONAL){
+		vp_parent->pictype = PIC_NATIONAL_VARYING;
 	} else {
-	     vp_parent->pictype = PIC_ALPHANUMERIC_VARYING;
+		vp_parent->pictype = PIC_ALPHANUMERIC_VARYING;
 	}
 
 	return;
