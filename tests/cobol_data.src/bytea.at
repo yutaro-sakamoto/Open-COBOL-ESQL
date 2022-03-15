@@ -77,7 +77,7 @@ AT_DATA([prog.cbl], [
                 )
            END-EXEC.
 
-           PERFORM VARYING IDX FROM 1 BY 1 UNTIL IDX > 10
+           PERFORM VARYING IDX FROM 1 BY 1 UNTIL IDX > 5
                MOVE TEST-DATA(IDX) TO V
                EXEC SQL
                    INSERT INTO TESTTABLE VALUES (:IDX, :V)
