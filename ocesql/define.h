@@ -86,15 +86,20 @@ struct cb_sql_list {
 	struct cb_sql_list *next;
 };
 
+struct cb_host_token_list {
+    char* text;
+    struct cb_host_token_list* next;
+};
+
 struct cb_hostreference_list {
-	char *hostreference;
+	struct cb_host_token_list *hostreference;
 	int hostno;
 	int lineno;
 	struct cb_hostreference_list *next;
 };
 
 struct cb_res_hostreference_list {
-	char *hostreference;
+    struct host_token_list *hostreference;
 	int lineno;
 	struct cb_res_hostreference_list *next;
 };

@@ -85,6 +85,7 @@ OPERATOR {OP_CHARS}+
 COMPARISON "="|"<>"|"<"|">"|"<="|">="
 COMMA ","
 HOSTWORD ":"([A-Za-z\-0-9_]*([\xA0-\xDF]|([\x81-\x9F\xE0-\xFC][\x40-\x7E\x80-\xFC]))*[A-Za-z\-0-9_]*)
+DOT "."
 
 INT_CONSTANT {digit}+
 

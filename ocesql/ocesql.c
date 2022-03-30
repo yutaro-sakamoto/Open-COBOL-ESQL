@@ -21,6 +21,7 @@
 
 #include "ocesqlutil.h"
 #include "ocesql.h"
+#include "define.h"
 
 int  processid = 0;
 char  *cb_source_file = NULL;
@@ -176,27 +177,43 @@ cb_add_text_list (struct cb_sql_list *list, struct cb_sql_list *targetlist)
 
 }
 
+struct cb_host_token_list*
+cb_make_host_token_list(char* text)
+{
+    struct cb_host_token_list* host_token_list;
+    host_token_list = malloc(sizeof(struct cb_host_token_list));
+    host_token_list->text = com_strdup(text);
+    host_token_list->next = NULL;
+    return host_token_list;
+}
 
-char *
-cb_host_list_add (struct cb_hostreference_list *list, char *text)
+struct cb_host_token_list*
+cb_add_host_token_list(char* text, struct cb_host_token_list* list)
+{
+    struct cb_host_token_list* new_host_token_list = cb_make_host_token_list(text);
+    new_host_token_list->next = list;
+    return new_host_token_list;
+}
+
+char*
+cb_host_list_add (struct cb_hostreference_list *list, struct cb_host_token_list *host_token_list)
 {
 	int hostno;
 	char temps[BUFFSIZE];
 
-	hostno = cb_search_list(text);
+	hostno = cb_search_list(host_token_list);
 
-	com_sprintf(temps,sizeof(temps),"$%d",hostno);
-	return com_strdup(temps);
+	return host_token_list->text;
 }
 
 void
-cb_res_host_list_add (struct cb_res_hostreference_list *list, char *text)
+cb_res_host_list_add (struct cb_res_hostreference_list *list, struct cb_host_token_list *host_token_list)
 {
 	struct cb_res_hostreference_list *l;
 	struct cb_res_hostreference_list *p;
 
 	p = malloc (sizeof (struct cb_res_hostreference_list));
-	p->hostreference = com_strdup (text);
+	p->hostreference = host_token_list;
 	p->lineno = hostlineno;
 	p->next = NULL;
 
@@ -210,7 +227,7 @@ cb_res_host_list_add (struct cb_res_hostreference_list *list, char *text)
 }
 
 int
-cb_search_list(char *text)
+cb_search_list(struct cb_host_token_list *host_token_list)
 {
 	struct cb_hostreference_list *l;
 	struct cb_hostreference_list *p;
@@ -222,7 +239,7 @@ cb_search_list(char *text)
 	}
 
 	p = malloc (sizeof (struct cb_hostreference_list));
-	p->hostreference = com_strdup (text);
+	p->hostreference = host_token_list;
 	p->hostno = i+1;
 	p->lineno = hostlineno;
 	p->next = NULL;

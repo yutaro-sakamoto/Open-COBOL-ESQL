@@ -104,17 +104,22 @@ struct cb_sql_list {
 	struct cb_sql_list *next;
 };
 
+struct cb_host_token_list {
+    char* text;
+    struct cb_host_token_list* next;
+};
+
 struct cb_hostreference_list {
-	char *hostreference;
-	int hostno;
-	int lineno;
-	struct cb_hostreference_list *next;
+    struct cb_host_token_list *hostreference;
+    int hostno;
+    int lineno;
+    struct cb_hostreference_list *next;
 };
 
 struct cb_res_hostreference_list {
-	char *hostreference;
-	int lineno;
-	struct cb_res_hostreference_list *next;
+    struct cb_host_token_list *hostreference;
+    int lineno;
+    struct cb_res_hostreference_list *next;
 };
 
 struct cb_exec_list {
@@ -207,12 +212,17 @@ extern struct cb_sql_list *
 cb_add_text_list (struct cb_sql_list *list, struct cb_sql_list *targetlist);
 extern struct cb_sql_list *
 cb_text_list_add (struct cb_sql_list *list, char *text);
+
+struct cb_host_token_list*
+cb_make_host_token_list(char* text);
+struct cb_host_token_list*
+cb_add_host_token_list(char* text, struct cb_host_token_list* list);
 char *
-cb_host_list_add (struct cb_hostreference_list *list, char *text);
+cb_host_list_add (struct cb_hostreference_list *list, struct cb_host_token_list *host_token_list);
 void
-cb_res_host_list_add (struct cb_res_hostreference_list *list, char *text);
+cb_res_host_list_add (struct cb_res_hostreference_list *list, struct cb_host_token_list *host_token_list);
 int
-cb_search_list(char *text);
+cb_search_list(struct cb_host_token_list *host_token_list);
 void
 cb_set_dbname(char *text);
 void

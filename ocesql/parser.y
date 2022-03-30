@@ -52,6 +52,7 @@
 	long int ld;
 	struct cb_sql_list	*l;
 	struct cb_hostreference_list *h;
+	struct cb_host_token_list *t;
 }
 
 %token<s> SELECT
@@ -112,11 +113,13 @@
 %token TIMES
 %token CONST
 %token WHERECURRENTOF
+%left  '.'
 
 %type <l> token_list declaresql includesql incfile preparesql execsql
 %type <l> opensql selectintosql select insertsql insert updatesql
 %type <l> update deletesql delete disconnect disconnectsql othersql
-%type <s> host_reference expr dbid prepared_stname
+%type <s> expr dbid prepared_stname
+%type <t> host_reference
 
 %%
 sqlstate_list:
@@ -314,7 +317,15 @@ prepared_stname:
 TOKEN{ cb_set_prepname($1); }
 
 statement_id:
-HOSTTOKEN{ cb_host_list_add (host_reference_list, $1); }
+host_reference { cb_host_list_add(host_reference_list, $1); }
+
+host_reference:
+HOSTTOKEN {
+        $$ = cb_make_host_token_list($1);
+}
+| HOSTTOKEN '.' host_reference {
+        $$ = cb_add_host_token_list($1, $3);
+}
 
 select:
 SELECT token_list{ $$ = cb_add_text_list (cb_text_list_add (NULL, $1), $2);}
@@ -333,9 +344,6 @@ expr				{      $$ = cb_text_list_add (NULL, $1);}
 	     cb_set_cursorname($3);
 	     $$ = cb_text_list_add($1, cursorname);
 }
-
-host_reference:
-HOSTTOKEN {}
 
 expr: TOKEN {}
 |SELECT{}
