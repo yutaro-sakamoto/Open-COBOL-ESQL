@@ -457,7 +457,7 @@ void ppoutputconnect(struct cb_exec_list *list){
 	fputs(buff, outfile);
 
 	if(list->conn_use_other_db){
-		iret = gethostvarianttype(list->dbName,&l,&m,&n);
+		iret = gethostvarianttype(cb_make_host_token_list(list->dbName),&l,&m,&n);
 		if(iret != 0){
 			memset(buff, 0, sizeof(buff));
 			com_sprintf(buff,sizeof(buff), "E%03d",iret);
@@ -480,7 +480,7 @@ void ppoutputconnect(struct cb_exec_list *list){
 		{
 			memset(buff, 0, sizeof(buff));
 			com_sprintf(buff,sizeof(buff), "E%03d",iret);
-			printerrormsg(host_list->hostreference, host_list->lineno, buff);
+			printerrormsg(host_token_list_to_str(host_list->hostreference), host_list->lineno, buff);
 			return;
 		}
 		memset(buff, 0, sizeof(buff));
@@ -542,7 +542,7 @@ int ppoutputparam(struct cb_hostreference_list *host_list, int iteration){
 	{
 		memset(buff, 0, sizeof(buff));
 		com_sprintf(buff,sizeof(buff), "E%03d",iret);
-		printerrormsg(host_list->hostreference, host_list->lineno, buff);
+		printerrormsg(host_token_list_to_str(host_list->hostreference), host_list->lineno, buff);
 		return 0;
 	}
 
@@ -554,7 +554,7 @@ int ppoutputparam(struct cb_hostreference_list *host_list, int iteration){
 			printmsg("%s:%d\n", host_list->hostreference, ERR_NOTDEF_WORKING);
 			memset(buff, 0, sizeof(buff));
 			com_sprintf(buff,sizeof(buff), "E%03d",ERR_NOTDEF_WORKING);
-			printerrormsg(host_list->hostreference, host_list->lineno,
+			printerrormsg(host_token_list_to_str(host_list->hostreference), host_list->lineno,
 					buff);
 			return count;
 		}
@@ -562,7 +562,7 @@ int ppoutputparam(struct cb_hostreference_list *host_list, int iteration){
 		f = f->children;
 
 		while(f){
-			iret = gethostvarianttype(f->sname,&type,&digits,&scale);
+			iret = gethostvarianttype(cb_make_host_token_list(f->sname),&type,&digits,&scale);
 			if(iret  != 0)
 			{
 				memset(buff, 0, sizeof(buff));
@@ -575,7 +575,7 @@ int ppoutputparam(struct cb_hostreference_list *host_list, int iteration){
 			f = f->sister;
 		}
 	}else{
-		_ppoutputparam(host_list->hostreference, type, digits, scale, iteration);
+		_ppoutputparam(host_token_list_to_str(host_list->hostreference), type, digits, scale, iteration);
 		count++;
 	}
 
@@ -623,7 +623,7 @@ void ppoutputresgroup(struct cb_field *cf, int lineno, int iteration){
 	if(cf == NULL)
 		return;
 
-	iret = gethostvarianttype(cf->sname, &type, &digits, &scale);
+	iret = gethostvarianttype(cb_make_host_token_list(cf->sname), &type, &digits, &scale);
 	if(iret != 0){
 		printmsg("%s:%d\n", cf->sname, iret);
 		memset(buff, 0, sizeof(buff));
@@ -664,7 +664,7 @@ void ppoutputexecprepare(struct cb_exec_list *list){
 			printmsg("%s:%d\n", host_list->hostreference,iret);
 			memset(buff, 0, sizeof(buff));
 			com_sprintf(buff,sizeof(buff), "E%03d",iret);
-			printerrormsg(host_list->hostreference, host_list->lineno,
+			printerrormsg(host_token_list_to_str(host_list->hostreference), host_list->lineno,
 					buff);
 			return;
 		}
@@ -694,7 +694,7 @@ void ppoutputexecprepare(struct cb_exec_list *list){
 		int var_len;
 		int var_scale;
 
-		iret = gethostvarianttype(list->dbName,&var_type, &var_len, &var_scale);
+		iret = gethostvarianttype(cb_make_host_token_list(list->dbName),&var_type, &var_len, &var_scale);
 		if(iret != 0)
 		{
 			memset(buff, 0, sizeof(buff));
@@ -756,7 +756,7 @@ void ppoutputfetch(struct cb_exec_list *list){
 		printmsg("%s:%d\n", res_host_list->hostreference,iret);
 		memset(buff, 0, sizeof(buff));
 		com_sprintf(buff,sizeof(buff), "E%03d",iret);
-		printerrormsg(res_host_list->hostreference, res_host_list->lineno,
+		printerrormsg(host_token_list_to_str(res_host_list->hostreference), res_host_list->lineno,
 					  buff);
 		return;
 	}
@@ -769,7 +769,7 @@ void ppoutputfetch(struct cb_exec_list *list){
 			printmsg("%s:%d\n", res_host_list->hostreference, ERR_NOTDEF_WORKING);
 			memset(buff, 0, sizeof(buff));
 			com_sprintf(buff,sizeof(buff), "E%03d",ERR_NOTDEF_WORKING);
-			printerrormsg(res_host_list->hostreference, res_host_list->lineno,
+			printerrormsg(host_token_list_to_str(res_host_list->hostreference), res_host_list->lineno,
 						  buff);
 			return;
 		}
@@ -783,7 +783,7 @@ void ppoutputfetch(struct cb_exec_list *list){
 			if(iret != 0){
 				memset(buff, 0, sizeof(buff));
 				com_sprintf(buff,sizeof(buff), "E%03d",iret);
-				printerrormsg(res_host_list->hostreference, res_host_list->lineno, buff);
+				printerrormsg(host_token_list_to_str(res_host_list->hostreference), res_host_list->lineno, buff);
 				return;
 			}
 		} else {
@@ -795,7 +795,7 @@ void ppoutputfetch(struct cb_exec_list *list){
 			if(iret != 0){
 				memset(buff, 0, sizeof(buff));
 				com_sprintf(buff,sizeof(buff), "E%03d",iret);
-				printerrormsg(res_host_list->hostreference, res_host_list->lineno, buff);
+				printerrormsg(host_token_list_to_str(res_host_list->hostreference), res_host_list->lineno, buff);
 				return;
 			}
 		}
@@ -806,11 +806,11 @@ void ppoutputfetch(struct cb_exec_list *list){
 			if(iret != 0){
 				memset(buff, 0, sizeof(buff));
 				com_sprintf(buff,sizeof(buff), "E%03d",iret);
-				printerrormsg(res_host_list->hostreference, res_host_list->lineno,
+				printerrormsg(host_token_list_to_str(res_host_list->hostreference), res_host_list->lineno,
 							  buff);
 				return;
 			}
-			ppoutputresparam(res_host_list->hostreference, type, digits, scale,iteration);
+			ppoutputresparam(host_token_list_to_str(res_host_list->hostreference), type, digits, scale,iteration);
 			res_host_list = res_host_list->next;
 		}
 	}
@@ -901,7 +901,7 @@ void ppoutputcommit(struct cb_exec_list *list){
 		int var_len;
 		int var_scale;
 
-		iret = gethostvarianttype(list->dbName,&var_type, &var_len, &var_scale);
+		iret = gethostvarianttype(cb_make_host_token_list(list->dbName),&var_type, &var_len, &var_scale);
 		if(iret != 0)
 		{
 			memset(buff, 0, sizeof(buff));
@@ -966,7 +966,7 @@ void ppoutputrollback(struct cb_exec_list *list){
 		int var_len;
 		int var_scale;
 
-		iret = gethostvarianttype(list->dbName,&var_type, &var_len, &var_scale);
+		iret = gethostvarianttype(cb_make_host_token_list(list->dbName),&var_type, &var_len, &var_scale);
 		if(iret != 0)
 		{
 			memset(buff, 0, sizeof(buff));
@@ -1027,12 +1027,12 @@ void ppoutputprepare(struct cb_exec_list *list){
 	{
 		memset(buff, 0, sizeof(buff));
 		com_sprintf(buff,sizeof(buff), "E%03d",iret);
-		printerrormsg(list->host_list->hostreference, list->host_list->lineno, buff);
+		printerrormsg(host_token_list_to_str(list->host_list->hostreference), list->host_list->lineno, buff);
 		return;
 	} else if(l != HVARTYPE_GROUP){
 		memset(buff, 0, sizeof(buff));
 		com_sprintf(buff,sizeof(buff), "E%03d",ERR_PREPARE_ISNT_GROUP);
-		printerrormsg(list->host_list->hostreference, list->host_list->lineno, buff);
+		printerrormsg(host_token_list_to_str(list->host_list->hostreference), list->host_list->lineno, buff);
 		return;
 	}
 
@@ -1041,7 +1041,7 @@ void ppoutputprepare(struct cb_exec_list *list){
 	     printmsg("%s:%d\n", list->host_list->hostreference, ERR_NOTDEF_WORKING);
 	     memset(buff, 0, sizeof(buff));
 	     com_sprintf(buff,sizeof(buff), "E%03d",ERR_NOTDEF_WORKING);
-	     printerrormsg(list->host_list->hostreference, list->host_list->lineno,
+	     printerrormsg(host_token_list_to_str(list->host_list->hostreference), list->host_list->lineno,
 			   buff);
 	     return;
 	}
@@ -1059,7 +1059,7 @@ void ppoutputprepare(struct cb_exec_list *list){
 	   child->sister == NULL){
 	     memset(buff, 0, sizeof(buff));
 	     com_sprintf(buff,sizeof(buff), "E%03d",ERR_PREPARE_INVALID_PARAM);
-	     printerrormsg(list->host_list->hostreference, list->host_list->lineno,
+	     printerrormsg(host_token_list_to_str(list->host_list->hostreference), list->host_list->lineno,
 			   buff);
 	     free(comp_varname);
 	     return;
@@ -1070,7 +1070,7 @@ void ppoutputprepare(struct cb_exec_list *list){
 	if(strcmp(comp_varname, child->sister->sname) != 0){
 	     memset(buff, 0, sizeof(buff));
 	     com_sprintf(buff,sizeof(buff), "E%03d",ERR_PREPARE_INVALID_PARAM);
-	     printerrormsg(list->host_list->hostreference, list->host_list->lineno,
+	     printerrormsg(host_token_list_to_str(list->host_list->hostreference), list->host_list->lineno,
 			   buff);
 	     free(comp_varname);
 	     return;
@@ -1109,7 +1109,7 @@ void ppoutputdisconnect(struct cb_exec_list *list){
 		int var_len;
 		int var_scale;
 
-		iret = gethostvarianttype(list->dbName,&var_type, &var_len, &var_scale);
+		iret = gethostvarianttype(cb_make_host_token_list(list->dbName),&var_type, &var_len, &var_scale);
 		if(iret != 0)
 		{
 			memset(buff, 0, sizeof(buff));
@@ -1156,7 +1156,7 @@ void ppoutputother(struct cb_exec_list *list){
 			int var_len;
 			int var_scale;
 
-			iret = gethostvarianttype(list->dbName,&var_type, &var_len, &var_scale);
+			iret = gethostvarianttype(cb_make_host_token_list(list->dbName),&var_type, &var_len, &var_scale);
 			if(iret != 0)
 			{
 				memset(buff, 0, sizeof(buff));
@@ -1286,7 +1286,7 @@ exit_occurs_check:
 		int var_len;
 		int var_scale;
 
-		iret = gethostvarianttype(list->dbName,&var_type, &var_len, &var_scale);
+		iret = gethostvarianttype(cb_make_host_token_list(list->dbName),&var_type, &var_len, &var_scale);
 		if(iret != 0)
 		{
 			memset(buff, 0, sizeof(buff));
@@ -1581,7 +1581,7 @@ void ppbuff(struct cb_exec_list *list){
 			outwrite();
 
 			if(list->conn_use_other_db){
-				iret = gethostvarianttype(list->dbName,&var_type, &var_len, &var_scale);
+				iret = gethostvarianttype(cb_make_host_token_list(list->dbName),&var_type, &var_len, &var_scale);
 				if(iret != 0)
 				{
 					memset(buff, 0, sizeof(buff));
@@ -1665,7 +1665,7 @@ void ppbuff(struct cb_exec_list *list){
 			if(iret != 0){
 				memset(buff, 0, sizeof(buff));
 				com_sprintf(buff,sizeof(buff), "E%03d",iret);
-				printerrormsg(wk_res_host->hostreference, wk_res_host->lineno,
+				printerrormsg(host_token_list_to_str(wk_res_host->hostreference), wk_res_host->lineno,
 							  buff);
 				return;
 			}
@@ -1678,7 +1678,7 @@ void ppbuff(struct cb_exec_list *list){
 					printmsg("%s:%d\n", wk_res_host->hostreference, ERR_NOTDEF_WORKING);
 					memset(buff, 0, sizeof(buff));
 					com_sprintf(buff,sizeof(buff), "E%03d",ERR_NOTDEF_WORKING);
-					printerrormsg(wk_res_host->hostreference, wk_res_host->lineno,
+					printerrormsg(host_token_list_to_str(wk_res_host->hostreference), wk_res_host->lineno,
 								  buff);
 					return;
 				}
@@ -1692,7 +1692,7 @@ void ppbuff(struct cb_exec_list *list){
 					if(iret != 0){
 						memset(buff, 0, sizeof(buff));
 						com_sprintf(buff,sizeof(buff), "E%03d",iret);
-						printerrormsg(wk_res_host->hostreference, wk_res_host->lineno,
+						printerrormsg(host_token_list_to_str(wk_res_host->hostreference), wk_res_host->lineno,
 									  buff);
 						return;
 					}
@@ -1704,14 +1704,14 @@ void ppbuff(struct cb_exec_list *list){
 					if(iret != 0){
 						memset(buff, 0, sizeof(buff));
 						com_sprintf(buff,sizeof(buff), "E%03d",iret);
-						printerrormsg(wk_res_host->hostreference, wk_res_host->lineno,
+						printerrormsg(host_token_list_to_str(wk_res_host->hostreference), wk_res_host->lineno,
 									  buff);
 						return;
 					}
 				}
 
 				while(child != NULL){
-					iret = gethostvarianttype(child->sname, &var_type, &var_len, &var_scale);
+					iret = gethostvarianttype(cb_make_host_token_list(child->sname), &var_type, &var_len, &var_scale);
 					if(iret != 0){
 						memset(buff, 0, sizeof(buff));
 						com_sprintf(buff,sizeof(buff), "E%03d",iret);
@@ -1730,12 +1730,12 @@ void ppbuff(struct cb_exec_list *list){
 					if(iret != 0){
 						memset(buff, 0, sizeof(buff));
 						com_sprintf(buff,sizeof(buff), "E%03d",iret);
-						printerrormsg(wk_res_host->hostreference, wk_res_host->lineno,
+						printerrormsg(host_token_list_to_str(wk_res_host->hostreference), wk_res_host->lineno,
 									  buff);
 						return;
 					}
 
-					ppoutputresparam(wk_res_host->hostreference, var_type, var_len, var_scale, 0);
+					ppoutputresparam(host_token_list_to_str(wk_res_host->hostreference), var_type, var_len, var_scale, 0);
 					reshostreferenceCount++;
 					wk_res_host = wk_res_host->next;
 				}
@@ -1794,7 +1794,7 @@ void ppbuff(struct cb_exec_list *list){
 			outwrite();
 
 			if(list->conn_use_other_db) {
-				iret = gethostvarianttype(list->dbName,&var_type, &var_len, &var_scale);
+				iret = gethostvarianttype(cb_make_host_token_list(list->dbName),&var_type, &var_len, &var_scale);
 				if(iret != 0)
 				{
 					memset(buff, 0, sizeof(buff));
@@ -1865,7 +1865,7 @@ void ppbuff(struct cb_exec_list *list){
 		outwrite();
 
 		if(list->conn_use_other_db){
-			iret = gethostvarianttype(list->dbName,&var_type, &var_len, &var_scale);
+			iret = gethostvarianttype(cb_make_host_token_list(list->dbName),&var_type, &var_len, &var_scale);
 			if(iret != 0)
 			{
 				memset(buff, 0, sizeof(buff));

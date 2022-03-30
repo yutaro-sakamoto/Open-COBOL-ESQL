@@ -201,9 +201,9 @@ cb_set_cursorname(char *text);
 void
 cb_set_prepname(char *text);
 extern struct cb_field *
-getfieldbyname(char *name);
+getfieldbyname(struct cb_host_token_list *name);
 extern int
-gethostvarianttype(char *name , int *type , int *len , int *scale);
+gethostvarianttype(struct cb_host_token_list *name , int *type , int *len , int *scale);
 
 void
 outwrite();

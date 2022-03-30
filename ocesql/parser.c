@@ -2405,7 +2405,7 @@ put_exec_list()
 
 static  int  xxx =0;
 
-struct cb_field *getfieldbynamefrom(char *name , struct cb_field *field)
+struct cb_field *getfieldbynamefrom(struct cb_host_token_list *name , struct cb_field *field)
 {
 	struct cb_field * p;
 
@@ -2414,7 +2414,7 @@ struct cb_field *getfieldbynamefrom(char *name , struct cb_field *field)
 
 	xxx++;
 
-	if(strcmp(name,field->sname) == 0 ){
+	if(strcmp(host_token_list_to_str(name),field->sname) == 0 ){
 		return field;
 	}
 
@@ -2431,12 +2431,12 @@ struct cb_field *getfieldbynamefrom(char *name , struct cb_field *field)
 
 }
 
-struct cb_field * getfieldbyname(char *name )
+struct cb_field * getfieldbyname(struct cb_host_token_list *name )
 {
 	return getfieldbynamefrom(name, description_field);
 }
 
-int gethostvarianttype(char *name,  int *type, int *digits, int *scale)
+int gethostvarianttype(struct cb_host_token_list *name,  int *type, int *digits, int *scale)
 {
 	struct cb_field * p;
 	int tmp_type,tmp_dig,tmp_scl;

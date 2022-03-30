@@ -226,6 +226,37 @@ cb_res_host_list_add (struct cb_res_hostreference_list *list, struct cb_host_tok
 	}
 }
 
+char*
+host_token_list_to_str(struct cb_host_token_list* host_token_list)
+{
+	char *buf;
+	struct cb_host_token_list* l;
+	char *p;
+
+	int total_length = 0;
+	for(l=host_token_list; l; l=l->next) {
+		total_length += strlen(l->text);
+		if(l->next) {
+			total_length++;
+		}
+	}
+
+	buf = malloc(total_length + 1);
+	p = buf;
+
+	for(l=host_token_list; l; l=l->next) {
+		int len = strlen(l->text);
+		memcpy(p, l->text, len);
+		p += len;
+		if(l->next) {
+			*p++ = '.';
+		}
+	}
+	*p = '\0';
+
+	return buf;
+}
+
 int
 cb_search_list(struct cb_host_token_list *host_token_list)
 {
