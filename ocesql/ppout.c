@@ -407,6 +407,7 @@ void ppoutputconnect(struct cb_exec_list *list){
 	int l,m,n;
 	int iret;
 	int list_count = 0;
+	char *host_name;
 
 	host_list = list->host_list;
 	while(host_list)
@@ -475,16 +476,17 @@ void ppoutputconnect(struct cb_exec_list *list){
 	host_list = list->host_list;
 	while(host_list)
 	{
-		iret = gethostvarianttype( host_list->hostreference,&l,&m,&n);
+		iret = gethostvarianttype(host_list->hostreference,&l,&m,&n);
+		host_name = host_token_list_to_str(host_list->hostreference);
 		if(iret!= 0)
 		{
 			memset(buff, 0, sizeof(buff));
 			com_sprintf(buff,sizeof(buff), "E%03d",iret);
-			printerrormsg(host_token_list_to_str(host_list->hostreference), host_list->lineno, buff);
+			printerrormsg(host_name, host_list->lineno, buff);
 			return;
 		}
 		memset(buff, 0, sizeof(buff));
-		com_sprintf(buff,sizeof(buff), "OCESQL%10sBY REFERENCE %s\n"," ",host_list->hostreference);
+		com_sprintf(buff,sizeof(buff), "OCESQL%10sBY REFERENCE %s\n"," ",host_name);
 		fputs(buff, outfile);
 		memset(buff, 0, sizeof(buff));
 		com_sprintf(buff,sizeof(buff), "OCESQL%10sBY VALUE %d\n"," ",m);
@@ -651,6 +653,7 @@ void ppoutputexecprepare(struct cb_exec_list *list){
 	int type, digits, scale;
 	int iret;
 	char str_type[BUFFSIZE];
+	char *host_name;
 
 	memset(buff, 0, sizeof(buff));
 	com_sprintf(buff,sizeof(buff), "OCESQL%5sCALL \"OCESQLStartSQL\"\nOCESQL%5sEND-CALL\n"," "," ");
@@ -661,11 +664,11 @@ void ppoutputexecprepare(struct cb_exec_list *list){
 	if(host_list){
 		iret = gethostvarianttype(host_list->hostreference, &type, &digits, &scale);
 		if(iret != 0){
-			printmsg("%s:%d\n", host_list->hostreference,iret);
+			host_name = host_token_list_to_str(host_list->hostreference);
+			printmsg("%s:%d\n", host_name,iret);
 			memset(buff, 0, sizeof(buff));
 			com_sprintf(buff,sizeof(buff), "E%03d",iret);
-			printerrormsg(host_token_list_to_str(host_list->hostreference), host_list->lineno,
-					buff);
+			printerrormsg(host_name, host_list->lineno, buff);
 			return;
 		}
 
@@ -745,6 +748,8 @@ void ppoutputfetch(struct cb_exec_list *list){
 	int length = 0;
 	int iteration = 0;
 
+	char* host_name;
+
 	memset(buff, 0, sizeof(buff));
 	com_sprintf(buff,sizeof(buff), "OCESQL%5sCALL \"OCESQLStartSQL\"\nOCESQL%5sEND-CALL\n"," "," ");
 	fputs(buff, outfile);
@@ -753,10 +758,11 @@ void ppoutputfetch(struct cb_exec_list *list){
 
 	iret = gethostvarianttype(res_host_list->hostreference, &type, &digits, &scale);
 	if(iret != 0){
-		printmsg("%s:%d\n", res_host_list->hostreference,iret);
+		host_name = host_token_list_to_str(res_host_list->hostreference);
+		printmsg("%s:%d\n", host_name,iret);
 		memset(buff, 0, sizeof(buff));
 		com_sprintf(buff,sizeof(buff), "E%03d",iret);
-		printerrormsg(host_token_list_to_str(res_host_list->hostreference), res_host_list->lineno,
+		printerrormsg(host_name, res_host_list->lineno,
 					  buff);
 		return;
 	}
@@ -766,11 +772,11 @@ void ppoutputfetch(struct cb_exec_list *list){
 
 		parent = getfieldbyname(res_host_list->hostreference);
 		if(parent == NULL){
-			printmsg("%s:%d\n", res_host_list->hostreference, ERR_NOTDEF_WORKING);
+			host_name = host_token_list_to_str(res_host_list->hostreference);
+			printmsg("%s:%d\n", host_name, ERR_NOTDEF_WORKING);
 			memset(buff, 0, sizeof(buff));
 			com_sprintf(buff,sizeof(buff), "E%03d",ERR_NOTDEF_WORKING);
-			printerrormsg(host_token_list_to_str(res_host_list->hostreference), res_host_list->lineno,
-						  buff);
+			printerrormsg(host_name, res_host_list->lineno, buff);
 			return;
 		}
 
@@ -1007,6 +1013,8 @@ void ppoutputprepare(struct cb_exec_list *list){
 	char *comp_varname;
 	int comp_varname_len;
 
+	char* host_name;
+
 	memset(buff, 0, sizeof(buff));
 	com_sprintf(buff,sizeof(buff), "OCESQL%5sCALL \"OCESQLPrepare\" USING\n", " ");
 	fputs(buff, outfile);
@@ -1038,12 +1046,12 @@ void ppoutputprepare(struct cb_exec_list *list){
 
 	parent = getfieldbyname(list->host_list->hostreference);
 	if(parent == NULL){
-	     printmsg("%s:%d\n", list->host_list->hostreference, ERR_NOTDEF_WORKING);
-	     memset(buff, 0, sizeof(buff));
-	     com_sprintf(buff,sizeof(buff), "E%03d",ERR_NOTDEF_WORKING);
-	     printerrormsg(host_token_list_to_str(list->host_list->hostreference), list->host_list->lineno,
-			   buff);
-	     return;
+		host_name = host_token_list_to_str(list->host_list->hostreference);
+	    printmsg("%s:%d\n", host_name, ERR_NOTDEF_WORKING);
+	    memset(buff, 0, sizeof(buff));
+	    com_sprintf(buff,sizeof(buff), "E%03d",ERR_NOTDEF_WORKING);
+	    printerrormsg(host_name, list->host_list->lineno, buff);
+	    return;
 	}
 
 	child = parent->children;
@@ -1675,10 +1683,11 @@ void ppbuff(struct cb_exec_list *list){
 
 				parent = getfieldbyname(wk_res_host->hostreference);
 				if(parent == NULL){
-					printmsg("%s:%d\n", wk_res_host->hostreference, ERR_NOTDEF_WORKING);
+					char* host_name = host_token_list_to_str(wk_res_host->hostreference);
+					printmsg("%s:%d\n", host_name, ERR_NOTDEF_WORKING);
 					memset(buff, 0, sizeof(buff));
 					com_sprintf(buff,sizeof(buff), "E%03d",ERR_NOTDEF_WORKING);
-					printerrormsg(host_token_list_to_str(wk_res_host->hostreference), wk_res_host->lineno,
+					printerrormsg(host_name, wk_res_host->lineno,
 								  buff);
 					return;
 				}
