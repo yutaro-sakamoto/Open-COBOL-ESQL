@@ -22,7 +22,7 @@
 #include <errno.h>
 #include <stdio.h>
 
-#define BUFFSIZE 256
+#define BUFFSIZE 2048
 #define MAX_LINESIZE 128
 #define COB_MAX_OCCURS_DEP 1
 
