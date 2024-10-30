@@ -317,13 +317,9 @@ AT_DATA([prog.cbl], [
            MOVE SQLERRD(3) TO FETCH-COUNT.
            DISPLAY FETCH-COUNT.
            PERFORM VARYING IDX FROM 1 BY 1 UNTIL IDX > 3
-              IF O-EMP-NO(IDX) = LOW-VALUE
+              IF OCCURS-EMP-REC-VARS(IDX) = LOW-VALUE
                     MOVE ZERO TO O-EMP-NO(IDX)
-              END-IF
-              IF O-EMP-NAME(IDX) = LOW-VALUE
                     MOVE SPACE TO O-EMP-NAME(IDX)
-              END-IF
-              IF O-EMP-SALARY(IDX) = LOW-VALUE
                     MOVE ZERO TO O-EMP-SALARY(IDX)
               END-IF
               DISPLAY O-EMP-NO(IDX) ", "

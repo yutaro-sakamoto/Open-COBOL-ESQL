@@ -597,7 +597,7 @@ at_help_all="1;connect-disconnect.at:1;connect and disconnect statement test;;
 5;insert.at:163;insert statement with group items test;;
 6;fetch.at:1;fetch statement test;;
 7;fetch.at:187;fetch into occurs item;;
-8;fetch.at:374;fetch into multi record items;;
+8;fetch.at:370;fetch into multi record items;;
 9;delete.at:1;delete statement test;;
 10;commit-rollback.at:1;commit and rollback statement test;;
 11;select.at:1;select statement test;;
@@ -3385,13 +3385,9 @@ cat >prog.cbl <<'_ATEOF'
            MOVE SQLERRD(3) TO FETCH-COUNT.
            DISPLAY FETCH-COUNT.
            PERFORM VARYING IDX FROM 1 BY 1 UNTIL IDX > 3
-              IF O-EMP-NO(IDX) = LOW-VALUE
+              IF OCCURS-EMP-REC-VARS(IDX) = LOW-VALUE
                     MOVE ZERO TO O-EMP-NO(IDX)
-              END-IF
-              IF O-EMP-NAME(IDX) = LOW-VALUE
                     MOVE SPACE TO O-EMP-NAME(IDX)
-              END-IF
-              IF O-EMP-SALARY(IDX) = LOW-VALUE
                     MOVE ZERO TO O-EMP-SALARY(IDX)
               END-IF
               DISPLAY O-EMP-NO(IDX) ", "
@@ -3417,47 +3413,47 @@ cat >prog.cbl <<'_ATEOF'
 _ATEOF
 
 { set +x
-$as_echo "$at_srcdir/fetch.at:350: ocesql prog.cbl prog.cob > /dev/null"
-at_fn_check_prepare_trace "fetch.at:350"
+$as_echo "$at_srcdir/fetch.at:346: ocesql prog.cbl prog.cob > /dev/null"
+at_fn_check_prepare_trace "fetch.at:346"
 ( $at_check_trace; ocesql prog.cbl prog.cob > /dev/null
 ) >>"$at_stdout" 2>>"$at_stderr" 5>&-
 at_status=$? at_failed=false
 $at_check_filter
 at_fn_diff_devnull "$at_stderr" || at_failed=:
 at_fn_diff_devnull "$at_stdout" || at_failed=:
-at_fn_check_status 0 $at_status "$at_srcdir/fetch.at:350"
+at_fn_check_status 0 $at_status "$at_srcdir/fetch.at:346"
 $at_failed && at_fn_log_failure
 $at_traceon; }
 
 { set +x
-$as_echo "$at_srcdir/fetch.at:351: \${EMBED_DB_INFO} prog.cob"
-at_fn_check_prepare_notrace 'a ${...} parameter expansion' "fetch.at:351"
+$as_echo "$at_srcdir/fetch.at:347: \${EMBED_DB_INFO} prog.cob"
+at_fn_check_prepare_notrace 'a ${...} parameter expansion' "fetch.at:347"
 ( $at_check_trace; ${EMBED_DB_INFO} prog.cob
 ) >>"$at_stdout" 2>>"$at_stderr" 5>&-
 at_status=$? at_failed=false
 $at_check_filter
 at_fn_diff_devnull "$at_stderr" || at_failed=:
 at_fn_diff_devnull "$at_stdout" || at_failed=:
-at_fn_check_status 0 $at_status "$at_srcdir/fetch.at:351"
+at_fn_check_status 0 $at_status "$at_srcdir/fetch.at:347"
 $at_failed && at_fn_log_failure
 $at_traceon; }
 
 { set +x
-$as_echo "$at_srcdir/fetch.at:352: \${COMPILE_MODULE} prog.cob"
-at_fn_check_prepare_notrace 'a ${...} parameter expansion' "fetch.at:352"
+$as_echo "$at_srcdir/fetch.at:348: \${COMPILE_MODULE} prog.cob"
+at_fn_check_prepare_notrace 'a ${...} parameter expansion' "fetch.at:348"
 ( $at_check_trace; ${COMPILE_MODULE} prog.cob
 ) >>"$at_stdout" 2>>"$at_stderr" 5>&-
 at_status=$? at_failed=false
 $at_check_filter
 at_fn_diff_devnull "$at_stderr" || at_failed=:
 at_fn_diff_devnull "$at_stdout" || at_failed=:
-at_fn_check_status 0 $at_status "$at_srcdir/fetch.at:352"
+at_fn_check_status 0 $at_status "$at_srcdir/fetch.at:348"
 $at_failed && at_fn_log_failure
 $at_traceon; }
 
 { set +x
-$as_echo "$at_srcdir/fetch.at:353: \${RUN_MODULE} prog 2> /dev/null"
-at_fn_check_prepare_notrace 'a ${...} parameter expansion' "fetch.at:353"
+$as_echo "$at_srcdir/fetch.at:349: \${RUN_MODULE} prog 2> /dev/null"
+at_fn_check_prepare_notrace 'a ${...} parameter expansion' "fetch.at:349"
 ( $at_check_trace; ${RUN_MODULE} prog 2> /dev/null
 ) >>"$at_stdout" 2>>"$at_stderr" 5>&-
 at_status=$? at_failed=false
@@ -3481,7 +3477,7 @@ echo >>"$at_stdout"; $as_echo "0003
 +0000,                     , +0000
 " | \
   $at_diff - "$at_stdout" || at_failed=:
-at_fn_check_status 0 $at_status "$at_srcdir/fetch.at:353"
+at_fn_check_status 0 $at_status "$at_srcdir/fetch.at:349"
 $at_failed && at_fn_log_failure
 $at_traceon; }
 
@@ -3492,7 +3488,7 @@ $at_traceon; }
 read at_status <"$at_status_file"
 #AT_STOP_7
 #AT_START_8
-at_fn_group_banner 8 'fetch.at:374' \
+at_fn_group_banner 8 'fetch.at:370' \
   "fetch into multi record items" "                  "
 at_xfail=no
 (
@@ -3641,47 +3637,47 @@ cat >prog.cbl <<'_ATEOF'
 _ATEOF
 
 { set +x
-$as_echo "$at_srcdir/fetch.at:514: ocesql prog.cbl prog.cob > /dev/null"
-at_fn_check_prepare_trace "fetch.at:514"
+$as_echo "$at_srcdir/fetch.at:510: ocesql prog.cbl prog.cob > /dev/null"
+at_fn_check_prepare_trace "fetch.at:510"
 ( $at_check_trace; ocesql prog.cbl prog.cob > /dev/null
 ) >>"$at_stdout" 2>>"$at_stderr" 5>&-
 at_status=$? at_failed=false
 $at_check_filter
 at_fn_diff_devnull "$at_stderr" || at_failed=:
 at_fn_diff_devnull "$at_stdout" || at_failed=:
-at_fn_check_status 0 $at_status "$at_srcdir/fetch.at:514"
+at_fn_check_status 0 $at_status "$at_srcdir/fetch.at:510"
 $at_failed && at_fn_log_failure
 $at_traceon; }
 
 { set +x
-$as_echo "$at_srcdir/fetch.at:515: \${EMBED_DB_INFO} prog.cob"
-at_fn_check_prepare_notrace 'a ${...} parameter expansion' "fetch.at:515"
+$as_echo "$at_srcdir/fetch.at:511: \${EMBED_DB_INFO} prog.cob"
+at_fn_check_prepare_notrace 'a ${...} parameter expansion' "fetch.at:511"
 ( $at_check_trace; ${EMBED_DB_INFO} prog.cob
 ) >>"$at_stdout" 2>>"$at_stderr" 5>&-
 at_status=$? at_failed=false
 $at_check_filter
 at_fn_diff_devnull "$at_stderr" || at_failed=:
 at_fn_diff_devnull "$at_stdout" || at_failed=:
-at_fn_check_status 0 $at_status "$at_srcdir/fetch.at:515"
+at_fn_check_status 0 $at_status "$at_srcdir/fetch.at:511"
 $at_failed && at_fn_log_failure
 $at_traceon; }
 
 { set +x
-$as_echo "$at_srcdir/fetch.at:516: \${COMPILE_MODULE} prog.cob"
-at_fn_check_prepare_notrace 'a ${...} parameter expansion' "fetch.at:516"
+$as_echo "$at_srcdir/fetch.at:512: \${COMPILE_MODULE} prog.cob"
+at_fn_check_prepare_notrace 'a ${...} parameter expansion' "fetch.at:512"
 ( $at_check_trace; ${COMPILE_MODULE} prog.cob
 ) >>"$at_stdout" 2>>"$at_stderr" 5>&-
 at_status=$? at_failed=false
 $at_check_filter
 at_fn_diff_devnull "$at_stderr" || at_failed=:
 at_fn_diff_devnull "$at_stdout" || at_failed=:
-at_fn_check_status 0 $at_status "$at_srcdir/fetch.at:516"
+at_fn_check_status 0 $at_status "$at_srcdir/fetch.at:512"
 $at_failed && at_fn_log_failure
 $at_traceon; }
 
 { set +x
-$as_echo "$at_srcdir/fetch.at:517: \${RUN_MODULE} prog 2> /dev/null"
-at_fn_check_prepare_notrace 'a ${...} parameter expansion' "fetch.at:517"
+$as_echo "$at_srcdir/fetch.at:513: \${RUN_MODULE} prog 2> /dev/null"
+at_fn_check_prepare_notrace 'a ${...} parameter expansion' "fetch.at:513"
 ( $at_check_trace; ${RUN_MODULE} prog 2> /dev/null
 ) >>"$at_stdout" 2>>"$at_stderr" 5>&-
 at_status=$? at_failed=false
@@ -3699,7 +3695,7 @@ echo >>"$at_stdout"; $as_echo "+0001, 北海　太郎          , +0400
 +0010, 埼玉　十\郎          , +0350
 " | \
   $at_diff - "$at_stdout" || at_failed=:
-at_fn_check_status 0 $at_status "$at_srcdir/fetch.at:517"
+at_fn_check_status 0 $at_status "$at_srcdir/fetch.at:513"
 $at_failed && at_fn_log_failure
 $at_traceon; }
 
