@@ -212,7 +212,7 @@ AT_DATA([prog.cbl], [
            05  TEST-NAME           PIC  X(20) .
            05  TEST-SALARY         PIC S9(04).
        01  IDX                     PIC  9(02).
-       01 TEST-CASE-COUNT PIC 9999 VALUE 1.
+       01  FETCH-COUNT             PIC  9(04).
 
        EXEC SQL BEGIN DECLARE SECTION END-EXEC.
        01  DBNAME                  PIC  X(30) VALUE SPACE.
@@ -237,7 +237,6 @@ AT_DATA([prog.cbl], [
        PROCEDURE                   DIVISION.
       ******************************************************************
        MAIN-RTN.
-           
            PERFORM SETUP-DB.
            PERFORM FETCH-DB.
            PERFORM CLEANUP-DB.
@@ -315,7 +314,8 @@ AT_DATA([prog.cbl], [
       ******************************************************************
        DISPLAY-OCCURS-EMP-REC.
       ******************************************************************
-           DISPLAY SQLERRD(3).
+           MOVE SQLERRD(3) TO FETCH-COUNT.
+           DISPLAY FETCH-COUNT.
            PERFORM VARYING IDX FROM 1 BY 1 UNTIL IDX > 3
               IF O-EMP-NO(IDX) = LOW-VALUE
                     MOVE ZERO TO O-EMP-NO(IDX)
@@ -351,19 +351,19 @@ AT_CHECK([ocesql prog.cbl prog.cob > /dev/null])
 AT_CHECK([${EMBED_DB_INFO} prog.cob])
 AT_CHECK([${COMPILE_MODULE} prog.cob])
 AT_CHECK([${RUN_MODULE} prog 2> /dev/null], [0],
-[+0000000003
+[0003
 +0001, 北海　太郎          , +0400
 +0002, 青森　次郎          , +0350
 +0003, 秋田　三郎          , +0300
-+0000000006
+0006
 +0004, 岩手　四郎          , -0250
 +0005, 宮城　五郎          , -0200
 +0006, 福島　六郎          , +0150
-+0000000009
+0009
 +0007, 栃木　七郎          , -0100
 +0008, 茨城　八郎          , +0050
 +0009, 群馬　九郎          , -0200
-+0000000010
+0010
 +0010, 埼玉　十郎          , +0350
 +0000,                     , +0000
 +0000,                     , +0000
@@ -399,7 +399,6 @@ AT_DATA([prog.cbl], [
            05  TEST-NAME           PIC  X(20) .
            05  TEST-SALARY         PIC S9(04).
        01  IDX                     PIC  9(02).
-       01 TEST-CASE-COUNT PIC 9999 VALUE 1.
 
        EXEC SQL BEGIN DECLARE SECTION END-EXEC.
        01  DBNAME                  PIC  X(30) VALUE SPACE.
@@ -423,7 +422,6 @@ AT_DATA([prog.cbl], [
        PROCEDURE                   DIVISION.
       ******************************************************************
        MAIN-RTN.
-           
            PERFORM SETUP-DB.
            PERFORM FETCH-DB.
            PERFORM CLEANUP-DB.
@@ -434,12 +432,11 @@ AT_DATA([prog.cbl], [
        SETUP-DB.
       ******************************************************************
 
-      *    SERVER
-           MOVE  "testdb@localhost"
+           MOVE  "<|DB_NAME|>@<|DB_HOST|>:<|DB_PORT|>"
              TO DBNAME.
-           MOVE  "postgres"
+           MOVE  "<|DB_USER|>"
              TO USERNAME.
-           MOVE  " "
+           MOVE  "<|DB_PASSWORD|>"
              TO PASSWD.
 
            EXEC SQL

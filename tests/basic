@@ -3280,7 +3280,7 @@ cat >prog.cbl <<'_ATEOF'
            05  TEST-NAME           PIC  X(20) .
            05  TEST-SALARY         PIC S9(04).
        01  IDX                     PIC  9(02).
-       01 TEST-CASE-COUNT PIC 9999 VALUE 1.
+       01  FETCH-COUNT             PIC  9(04).
 
        EXEC SQL BEGIN DECLARE SECTION END-EXEC.
        01  DBNAME                  PIC  X(30) VALUE SPACE.
@@ -3305,7 +3305,6 @@ cat >prog.cbl <<'_ATEOF'
        PROCEDURE                   DIVISION.
       ******************************************************************
        MAIN-RTN.
-
            PERFORM SETUP-DB.
            PERFORM FETCH-DB.
            PERFORM CLEANUP-DB.
@@ -3383,7 +3382,8 @@ cat >prog.cbl <<'_ATEOF'
       ******************************************************************
        DISPLAY-OCCURS-EMP-REC.
       ******************************************************************
-           DISPLAY SQLERRD(3).
+           MOVE SQLERRD(3) TO FETCH-COUNT.
+           DISPLAY FETCH-COUNT.
            PERFORM VARYING IDX FROM 1 BY 1 UNTIL IDX > 3
               IF O-EMP-NO(IDX) = LOW-VALUE
                     MOVE ZERO TO O-EMP-NO(IDX)
@@ -3463,19 +3463,19 @@ at_fn_check_prepare_notrace 'a ${...} parameter expansion' "fetch.at:353"
 at_status=$? at_failed=false
 $at_check_filter
 at_fn_diff_devnull "$at_stderr" || at_failed=:
-echo >>"$at_stdout"; $as_echo "+0000000003
+echo >>"$at_stdout"; $as_echo "0003
 +0001, 北海　太郎          , +0400
 +0002, 青森　次郎          , +0350
 +0003, 秋田　三郎          , +0300
-+0000000006
+0006
 +0004, 岩手　四郎          , -0250
 +0005, 宮城　五郎          , -0200
 +0006, 福島　六郎          , +0150
-+0000000009
+0009
 +0007, 栃木　七郎          , -0100
 +0008, 茨城　八郎          , +0050
 +0009, 群馬　九郎          , -0200
-+0000000010
+0010
 +0010, 埼玉　十\郎          , +0350
 +0000,                     , +0000
 +0000,                     , +0000
@@ -3527,7 +3527,6 @@ cat >prog.cbl <<'_ATEOF'
            05  TEST-NAME           PIC  X(20) .
            05  TEST-SALARY         PIC S9(04).
        01  IDX                     PIC  9(02).
-       01 TEST-CASE-COUNT PIC 9999 VALUE 1.
 
        EXEC SQL BEGIN DECLARE SECTION END-EXEC.
        01  DBNAME                  PIC  X(30) VALUE SPACE.
@@ -3551,7 +3550,6 @@ cat >prog.cbl <<'_ATEOF'
        PROCEDURE                   DIVISION.
       ******************************************************************
        MAIN-RTN.
-
            PERFORM SETUP-DB.
            PERFORM FETCH-DB.
            PERFORM CLEANUP-DB.
@@ -3562,12 +3560,11 @@ cat >prog.cbl <<'_ATEOF'
        SETUP-DB.
       ******************************************************************
 
-      *    SERVER
-           MOVE  "testdb@localhost"
+           MOVE  "<|DB_NAME|>@<|DB_HOST|>:<|DB_PORT|>"
              TO DBNAME.
-           MOVE  "postgres"
+           MOVE  "<|DB_USER|>"
              TO USERNAME.
-           MOVE  " "
+           MOVE  "<|DB_PASSWORD|>"
              TO PASSWD.
 
            EXEC SQL
@@ -3644,47 +3641,47 @@ cat >prog.cbl <<'_ATEOF'
 _ATEOF
 
 { set +x
-$as_echo "$at_srcdir/fetch.at:517: ocesql prog.cbl prog.cob > /dev/null"
-at_fn_check_prepare_trace "fetch.at:517"
+$as_echo "$at_srcdir/fetch.at:514: ocesql prog.cbl prog.cob > /dev/null"
+at_fn_check_prepare_trace "fetch.at:514"
 ( $at_check_trace; ocesql prog.cbl prog.cob > /dev/null
 ) >>"$at_stdout" 2>>"$at_stderr" 5>&-
 at_status=$? at_failed=false
 $at_check_filter
 at_fn_diff_devnull "$at_stderr" || at_failed=:
 at_fn_diff_devnull "$at_stdout" || at_failed=:
-at_fn_check_status 0 $at_status "$at_srcdir/fetch.at:517"
+at_fn_check_status 0 $at_status "$at_srcdir/fetch.at:514"
 $at_failed && at_fn_log_failure
 $at_traceon; }
 
 { set +x
-$as_echo "$at_srcdir/fetch.at:518: \${EMBED_DB_INFO} prog.cob"
-at_fn_check_prepare_notrace 'a ${...} parameter expansion' "fetch.at:518"
+$as_echo "$at_srcdir/fetch.at:515: \${EMBED_DB_INFO} prog.cob"
+at_fn_check_prepare_notrace 'a ${...} parameter expansion' "fetch.at:515"
 ( $at_check_trace; ${EMBED_DB_INFO} prog.cob
 ) >>"$at_stdout" 2>>"$at_stderr" 5>&-
 at_status=$? at_failed=false
 $at_check_filter
 at_fn_diff_devnull "$at_stderr" || at_failed=:
 at_fn_diff_devnull "$at_stdout" || at_failed=:
-at_fn_check_status 0 $at_status "$at_srcdir/fetch.at:518"
+at_fn_check_status 0 $at_status "$at_srcdir/fetch.at:515"
 $at_failed && at_fn_log_failure
 $at_traceon; }
 
 { set +x
-$as_echo "$at_srcdir/fetch.at:519: \${COMPILE_MODULE} prog.cob"
-at_fn_check_prepare_notrace 'a ${...} parameter expansion' "fetch.at:519"
+$as_echo "$at_srcdir/fetch.at:516: \${COMPILE_MODULE} prog.cob"
+at_fn_check_prepare_notrace 'a ${...} parameter expansion' "fetch.at:516"
 ( $at_check_trace; ${COMPILE_MODULE} prog.cob
 ) >>"$at_stdout" 2>>"$at_stderr" 5>&-
 at_status=$? at_failed=false
 $at_check_filter
 at_fn_diff_devnull "$at_stderr" || at_failed=:
 at_fn_diff_devnull "$at_stdout" || at_failed=:
-at_fn_check_status 0 $at_status "$at_srcdir/fetch.at:519"
+at_fn_check_status 0 $at_status "$at_srcdir/fetch.at:516"
 $at_failed && at_fn_log_failure
 $at_traceon; }
 
 { set +x
-$as_echo "$at_srcdir/fetch.at:520: \${RUN_MODULE} prog 2> /dev/null"
-at_fn_check_prepare_notrace 'a ${...} parameter expansion' "fetch.at:520"
+$as_echo "$at_srcdir/fetch.at:517: \${RUN_MODULE} prog 2> /dev/null"
+at_fn_check_prepare_notrace 'a ${...} parameter expansion' "fetch.at:517"
 ( $at_check_trace; ${RUN_MODULE} prog 2> /dev/null
 ) >>"$at_stdout" 2>>"$at_stderr" 5>&-
 at_status=$? at_failed=false
@@ -3702,7 +3699,7 @@ echo >>"$at_stdout"; $as_echo "+0001, 北海　太郎          , +0400
 +0010, 埼玉　十\郎          , +0350
 " | \
   $at_diff - "$at_stdout" || at_failed=:
-at_fn_check_status 0 $at_status "$at_srcdir/fetch.at:520"
+at_fn_check_status 0 $at_status "$at_srcdir/fetch.at:517"
 $at_failed && at_fn_log_failure
 $at_traceon; }
 
