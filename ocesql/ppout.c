@@ -742,78 +742,75 @@ void ppoutputfetch(struct cb_exec_list *list){
  	int occurs_is_parent = 0;
 	int length = 0;
 	int iteration = 0;
+	int is_fetch_occurs = 1;
 
 	memset(buff, 0, sizeof(buff));
 	com_sprintf(buff,sizeof(buff), "OCESQL%5sCALL \"OCESQLStartSQL\"\nOCESQL%5sEND-CALL\n"," "," ");
 	fputs(buff, outfile);
 
 	res_host_list = list->res_host_list;
-
-	iret = gethostvarianttype(res_host_list->hostreference, &type, &digits, &scale);
-	if(iret != 0){
-		printmsg("%s:%d\n", res_host_list->hostreference,iret);
-		memset(buff, 0, sizeof(buff));
-		com_sprintf(buff,sizeof(buff), "E%03d",iret);
-		printerrormsg(res_host_list->hostreference, res_host_list->lineno,
-					  buff);
-		return;
-	}
-
-	if(type == HVARTYPE_GROUP){
-		struct cb_field *parent, *child;
-
-		parent = getfieldbyname(res_host_list->hostreference);
-		if(parent == NULL){
-			printmsg("%s:%d\n", res_host_list->hostreference, ERR_NOTDEF_WORKING);
+	while(res_host_list)
+	{
+		iret = gethostvarianttype(res_host_list->hostreference, &type, &digits, &scale);
+		if(iret != 0){
 			memset(buff, 0, sizeof(buff));
-			com_sprintf(buff,sizeof(buff), "E%03d",ERR_NOTDEF_WORKING);
+			com_sprintf(buff,sizeof(buff), "E%03d",iret);
 			printerrormsg(res_host_list->hostreference, res_host_list->lineno,
-						  buff);
+							buff);
 			return;
 		}
+		if(type == HVARTYPE_GROUP){
+			struct cb_field *parent, *child;
 
-		child = parent->children;
-		if(parent->occurs){
-			iteration = parent->occurs;
-			occurs_is_parent = 1;
-			ppoutputresgroup(child, res_host_list->lineno, iteration);
-			iret = get_host_group_length(child, &length);
-			if(iret != 0){
+			parent = getfieldbyname(res_host_list->hostreference);
+			if(parent == NULL){
+				printmsg("%s:%d\n", res_host_list->hostreference, ERR_NOTDEF_WORKING);
 				memset(buff, 0, sizeof(buff));
-				com_sprintf(buff,sizeof(buff), "E%03d",iret);
-				printerrormsg(res_host_list->hostreference, res_host_list->lineno, buff);
+				com_sprintf(buff,sizeof(buff), "E%03d",ERR_NOTDEF_WORKING);
+				printerrormsg(res_host_list->hostreference, res_host_list->lineno,
+							buff);
 				return;
+			}
+
+			child = parent->children;
+			if(parent->occurs){
+				if (iteration > 0 && iteration != parent->occurs) {
+					memset(buff, 0, sizeof(buff));
+					com_sprintf(buff,sizeof(buff), "E%03d",iret);
+					printerrormsg(res_host_list->hostreference, res_host_list->lineno, buff);
+				}
+				iteration = parent->occurs;
+				occurs_is_parent = 1;
+				ppoutputresgroup(child, res_host_list->lineno, iteration);
+				iret = get_host_group_length(child, &length);
+				if(iret != 0){
+					memset(buff, 0, sizeof(buff));
+					com_sprintf(buff,sizeof(buff), "E%03d",iret);
+					printerrormsg(res_host_list->hostreference, res_host_list->lineno, buff);
+					return;
+				}
+			} else {
+				iteration = -1;
+				occurs_is_parent = 0;
+				is_fetch_occurs = 0;
+
+				iret = get_host_group_table_info(child, &iteration, &length);
+				ppoutputresgroup(child, res_host_list->lineno, iteration);
+				if(iret != 0){
+					memset(buff, 0, sizeof(buff));
+					com_sprintf(buff,sizeof(buff), "E%03d",iret);
+					printerrormsg(res_host_list->hostreference, res_host_list->lineno, buff);
+					return;
+				}
 			}
 		} else {
-			iteration = -1;
-			occurs_is_parent = 0;
-
-			iret = get_host_group_table_info(child, &iteration, &length);
-			ppoutputresgroup(child, res_host_list->lineno, iteration);
-			if(iret != 0){
-				memset(buff, 0, sizeof(buff));
-				com_sprintf(buff,sizeof(buff), "E%03d",iret);
-				printerrormsg(res_host_list->hostreference, res_host_list->lineno, buff);
-				return;
-			}
-		}
-	} else {
-		while(res_host_list)
-		{
-			iret = gethostvarianttype(res_host_list->hostreference, &type, &digits, &scale);
-			if(iret != 0){
-				memset(buff, 0, sizeof(buff));
-				com_sprintf(buff,sizeof(buff), "E%03d",iret);
-				printerrormsg(res_host_list->hostreference, res_host_list->lineno,
-							  buff);
-				return;
-			}
+			is_fetch_occurs = 0;
 			ppoutputresparam(res_host_list->hostreference, type, digits, scale,iteration);
-			res_host_list = res_host_list->next;
 		}
+		res_host_list = res_host_list->next;
 	}
 
-	if(iteration){
+	if(is_fetch_occurs && iteration){
 		memset(buff, 0, sizeof(buff));
 		com_sprintf(buff,sizeof(buff), "OCESQL%5sCALL \"OCESQLSetHostTable\" USING\n" ," ");
 		fputs(buff, outfile);

@@ -596,12 +596,14 @@ at_help_all="1;connect-disconnect.at:1;connect and disconnect statement test;;
 4;insert.at:1;insert statement test;;
 5;insert.at:163;insert statement with group items test;;
 6;fetch.at:1;fetch statement test;;
-7;delete.at:1;delete statement test;;
-8;commit-rollback.at:1;commit and rollback statement test;;
-9;select.at:1;select statement test;;
-10;update.at:1;update statement test;;
-11;include.at:1;use include variable;;
-12;include.at:100;use include variable with gropu insert;;
+7;fetch.at:187;fetch into occurs item;;
+8;fetch.at:370;fetch into multi record items;;
+9;delete.at:1;delete statement test;;
+10;commit-rollback.at:1;commit and rollback statement test;;
+11;select.at:1;select statement test;;
+12;update.at:1;update statement test;;
+13;include.at:1;use include variable;;
+14;include.at:100;use include variable with gropu insert;;
 "
 # List of the all the test groups.
 at_groups_all=`$as_echo "$at_help_all" | sed 's/;.*//'`
@@ -615,7 +617,7 @@ at_fn_validate_ranges ()
   for at_grp
   do
     eval at_value=\$$at_grp
-    if test $at_value -lt 1 || test $at_value -gt 12; then
+    if test $at_value -lt 1 || test $at_value -gt 14; then
       $as_echo "invalid test group: $at_value" >&2
       exit 1
     fi
@@ -3243,11 +3245,472 @@ $at_traceon; }
 read at_status <"$at_status_file"
 #AT_STOP_6
 #AT_START_7
-at_fn_group_banner 7 'delete.at:1' \
-  "delete statement test" "                          "
+at_fn_group_banner 7 'fetch.at:187' \
+  "fetch into occurs item" "                         "
 at_xfail=no
 (
   $as_echo "7. $at_setup_line: testing $at_desc ..."
+  $at_traceon
+
+
+cat >prog.cbl <<'_ATEOF'
+
+       IDENTIFICATION              DIVISION.
+      ******************************************************************
+       PROGRAM-ID.                 prog.
+      ******************************************************************
+       DATA                        DIVISION.
+      ******************************************************************
+       WORKING-STORAGE             SECTION.
+       01  TEST-DATA.
+         03 FILLER       PIC X(28) VALUE "0001北海　太郎          0400".
+         03 FILLER       PIC X(28) VALUE "0002青森　次郎          0350".
+         03 FILLER       PIC X(28) VALUE "0003秋田　三郎          0300".
+         03 FILLER       PIC X(28) VALUE "0004岩手　四郎          025p".
+         03 FILLER       PIC X(28) VALUE "0005宮城　五郎          020p".
+         03 FILLER       PIC X(28) VALUE "0006福島　六郎          0150".
+         03 FILLER       PIC X(28) VALUE "0007栃木　七郎          010p".
+         03 FILLER       PIC X(28) VALUE "0008茨城　八郎          0050".
+         03 FILLER       PIC X(28) VALUE "0009群馬　九郎          020p".
+         03 FILLER       PIC X(28) VALUE "0010埼玉　十郎          0350".
+
+       01  TEST-DATA-R   REDEFINES TEST-DATA.
+         03  TEST-TBL    OCCURS  10.
+           05  TEST-NO             PIC S9(04).
+           05  TEST-NAME           PIC  X(20) .
+           05  TEST-SALARY         PIC S9(04).
+       01  IDX                     PIC  9(02).
+       01  FETCH-COUNT             PIC  9(04).
+
+       EXEC SQL BEGIN DECLARE SECTION END-EXEC.
+       01  DBNAME                  PIC  X(30) VALUE SPACE.
+       01  USERNAME                PIC  X(30) VALUE SPACE.
+       01  PASSWD                  PIC  X(10) VALUE SPACE.
+
+       01  EMP-REC-VARS.
+         03  EMP-NO                PIC S9(04) VALUE ZERO.
+         03  EMP-NAME              PIC  X(20) .
+         03  EMP-SALARY            PIC S9(04) VALUE ZERO.
+
+       01  OCCURS-EMP-REC.
+        02  OCCURS-EMP-REC-VARS OCCURS 3.
+         03  O-EMP-NO              PIC S9(04) VALUE ZERO.
+         03  O-EMP-NAME            PIC  X(20) .
+         03  O-EMP-SALARY          PIC S9(04) VALUE ZERO.
+
+       EXEC SQL END DECLARE SECTION END-EXEC.
+
+       EXEC SQL INCLUDE SQLCA END-EXEC.
+      ******************************************************************
+       PROCEDURE                   DIVISION.
+      ******************************************************************
+       MAIN-RTN.
+           PERFORM SETUP-DB.
+           PERFORM FETCH-DB.
+           PERFORM CLEANUP-DB.
+       MAIN-EXT.
+           STOP RUN.
+
+      ******************************************************************
+       SETUP-DB.
+      ******************************************************************
+
+      *    SERVER
+           MOVE  "<|DB_NAME|>@<|DB_HOST|>:<|DB_PORT|>"
+             TO DBNAME.
+           MOVE  "<|DB_USER|>"
+             TO USERNAME.
+           MOVE  "<|DB_PASSWORD|>"
+             TO PASSWD.
+
+           EXEC SQL
+               CONNECT :USERNAME IDENTIFIED BY :PASSWD USING :DBNAME
+           END-EXEC.
+
+           EXEC SQL
+               DROP TABLE IF EXISTS EMP
+           END-EXEC.
+
+           EXEC SQL
+                CREATE TABLE EMP
+                (
+                    EMP_NO     NUMERIC(4,0) NOT NULL,
+                    EMP_NAME   CHAR(20),
+                    EMP_SALARY NUMERIC(4,0),
+                    CONSTRAINT IEMP_0 PRIMARY KEY (EMP_NO)
+                )
+           END-EXEC.
+
+      *    INSERT ROWS USING HOST VARIABLE
+           PERFORM VARYING IDX FROM 1 BY 1 UNTIL IDX > 10
+              MOVE TEST-NO(IDX)     TO  EMP-NO
+              MOVE TEST-NAME(IDX)   TO  EMP-NAME
+              MOVE TEST-SALARY(IDX) TO  EMP-SALARY
+              EXEC SQL
+                 INSERT INTO EMP VALUES
+                        (:EMP-NO,:EMP-NAME,:EMP-SALARY)
+              END-EXEC
+           END-PERFORM.
+
+      ******************************************************************
+       FETCH-DB.
+      ******************************************************************
+      *    DECLARE CURSOR
+           EXEC SQL
+               DECLARE C1 CURSOR FOR
+               SELECT EMP_NO, EMP_NAME, EMP_SALARY
+                      FROM EMP
+                      ORDER BY EMP_NO
+           END-EXEC.
+      *    OPEN CURSOR
+           EXEC SQL
+               OPEN C1
+           END-EXEC.
+      *  　FETCH CURSOR
+           MOVE SPACE TO OCCURS-EMP-REC.
+           EXEC SQL
+               FETCH C1 INTO :OCCURS-EMP-REC-VARS
+           END-EXEC.
+           PERFORM UNTIL SQLCODE NOT = ZERO
+              PERFORM DISPLAY-OCCURS-EMP-REC
+              MOVE SPACE TO OCCURS-EMP-REC
+              EXEC SQL
+                  FETCH C1 INTO :OCCURS-EMP-REC-VARS
+              END-EXEC
+           END-PERFORM.
+
+      ******************************************************************
+       DISPLAY-OCCURS-EMP-REC.
+      ******************************************************************
+           MOVE SQLERRD(3) TO FETCH-COUNT.
+           DISPLAY FETCH-COUNT.
+           PERFORM VARYING IDX FROM 1 BY 1 UNTIL IDX > 3
+              IF OCCURS-EMP-REC-VARS(IDX) = LOW-VALUE
+                    MOVE ZERO TO O-EMP-NO(IDX)
+                    MOVE SPACE TO O-EMP-NAME(IDX)
+                    MOVE ZERO TO O-EMP-SALARY(IDX)
+              END-IF
+              DISPLAY O-EMP-NO(IDX) ", "
+                      O-EMP-NAME(IDX) ", "
+                      O-EMP-SALARY(IDX)
+           END-PERFORM.
+
+      ******************************************************************
+       CLEANUP-DB.
+      ******************************************************************
+           EXEC SQL
+               CLOSE C1
+           END-EXEC.
+
+           EXEC SQL
+               DROP TABLE IF EXISTS EMP
+           END-EXEC.
+
+           EXEC SQL
+               DISCONNECT ALL
+           END-EXEC.
+
+_ATEOF
+
+{ set +x
+$as_echo "$at_srcdir/fetch.at:346: ocesql prog.cbl prog.cob > /dev/null"
+at_fn_check_prepare_trace "fetch.at:346"
+( $at_check_trace; ocesql prog.cbl prog.cob > /dev/null
+) >>"$at_stdout" 2>>"$at_stderr" 5>&-
+at_status=$? at_failed=false
+$at_check_filter
+at_fn_diff_devnull "$at_stderr" || at_failed=:
+at_fn_diff_devnull "$at_stdout" || at_failed=:
+at_fn_check_status 0 $at_status "$at_srcdir/fetch.at:346"
+$at_failed && at_fn_log_failure
+$at_traceon; }
+
+{ set +x
+$as_echo "$at_srcdir/fetch.at:347: \${EMBED_DB_INFO} prog.cob"
+at_fn_check_prepare_notrace 'a ${...} parameter expansion' "fetch.at:347"
+( $at_check_trace; ${EMBED_DB_INFO} prog.cob
+) >>"$at_stdout" 2>>"$at_stderr" 5>&-
+at_status=$? at_failed=false
+$at_check_filter
+at_fn_diff_devnull "$at_stderr" || at_failed=:
+at_fn_diff_devnull "$at_stdout" || at_failed=:
+at_fn_check_status 0 $at_status "$at_srcdir/fetch.at:347"
+$at_failed && at_fn_log_failure
+$at_traceon; }
+
+{ set +x
+$as_echo "$at_srcdir/fetch.at:348: \${COMPILE_MODULE} prog.cob"
+at_fn_check_prepare_notrace 'a ${...} parameter expansion' "fetch.at:348"
+( $at_check_trace; ${COMPILE_MODULE} prog.cob
+) >>"$at_stdout" 2>>"$at_stderr" 5>&-
+at_status=$? at_failed=false
+$at_check_filter
+at_fn_diff_devnull "$at_stderr" || at_failed=:
+at_fn_diff_devnull "$at_stdout" || at_failed=:
+at_fn_check_status 0 $at_status "$at_srcdir/fetch.at:348"
+$at_failed && at_fn_log_failure
+$at_traceon; }
+
+{ set +x
+$as_echo "$at_srcdir/fetch.at:349: \${RUN_MODULE} prog 2> /dev/null"
+at_fn_check_prepare_notrace 'a ${...} parameter expansion' "fetch.at:349"
+( $at_check_trace; ${RUN_MODULE} prog 2> /dev/null
+) >>"$at_stdout" 2>>"$at_stderr" 5>&-
+at_status=$? at_failed=false
+$at_check_filter
+at_fn_diff_devnull "$at_stderr" || at_failed=:
+echo >>"$at_stdout"; $as_echo "0003
++0001, 北海　太郎          , +0400
++0002, 青森　次郎          , +0350
++0003, 秋田　三郎          , +0300
+0006
++0004, 岩手　四郎          , -0250
++0005, 宮城　五郎          , -0200
++0006, 福島　六郎          , +0150
+0009
++0007, 栃木　七郎          , -0100
++0008, 茨城　八郎          , +0050
++0009, 群馬　九郎          , -0200
+0010
++0010, 埼玉　十\郎          , +0350
++0000,                     , +0000
++0000,                     , +0000
+" | \
+  $at_diff - "$at_stdout" || at_failed=:
+at_fn_check_status 0 $at_status "$at_srcdir/fetch.at:349"
+$at_failed && at_fn_log_failure
+$at_traceon; }
+
+
+  set +x
+  $at_times_p && times >"$at_times_file"
+) 5>&1 2>&1 7>&- | eval $at_tee_pipe
+read at_status <"$at_status_file"
+#AT_STOP_7
+#AT_START_8
+at_fn_group_banner 8 'fetch.at:370' \
+  "fetch into multi record items" "                  "
+at_xfail=no
+(
+  $as_echo "8. $at_setup_line: testing $at_desc ..."
+  $at_traceon
+
+
+cat >prog.cbl <<'_ATEOF'
+
+       IDENTIFICATION              DIVISION.
+      ******************************************************************
+       PROGRAM-ID.                 prog.
+      ******************************************************************
+       DATA                        DIVISION.
+      ******************************************************************
+       WORKING-STORAGE             SECTION.
+       01  TEST-DATA.
+         03 FILLER       PIC X(28) VALUE "0001北海　太郎          0400".
+         03 FILLER       PIC X(28) VALUE "0002青森　次郎          0350".
+         03 FILLER       PIC X(28) VALUE "0003秋田　三郎          0300".
+         03 FILLER       PIC X(28) VALUE "0004岩手　四郎          025p".
+         03 FILLER       PIC X(28) VALUE "0005宮城　五郎          020p".
+         03 FILLER       PIC X(28) VALUE "0006福島　六郎          0150".
+         03 FILLER       PIC X(28) VALUE "0007栃木　七郎          010p".
+         03 FILLER       PIC X(28) VALUE "0008茨城　八郎          0050".
+         03 FILLER       PIC X(28) VALUE "0009群馬　九郎          020p".
+         03 FILLER       PIC X(28) VALUE "0010埼玉　十郎          0350".
+
+       01  TEST-DATA-R   REDEFINES TEST-DATA.
+         03  TEST-TBL    OCCURS  10.
+           05  TEST-NO             PIC S9(04).
+           05  TEST-NAME           PIC  X(20) .
+           05  TEST-SALARY         PIC S9(04).
+       01  IDX                     PIC  9(02).
+
+       EXEC SQL BEGIN DECLARE SECTION END-EXEC.
+       01  DBNAME                  PIC  X(30) VALUE SPACE.
+       01  USERNAME                PIC  X(30) VALUE SPACE.
+       01  PASSWD                  PIC  X(10) VALUE SPACE.
+
+       01  EMP-REC-VARS.
+         03  EMP-NO                PIC S9(04) VALUE ZERO.
+         03  EMP-NAME              PIC  X(20) .
+         03  EMP-SALARY            PIC S9(04) VALUE ZERO.
+
+       01  MULTI-REC-VARS.
+         03  M-EMP-NO              PIC S9(04) VALUE ZERO.
+         03  M-EMP-NAME            PIC  X(20) .
+       01  M-EMP-SALARY          PIC S9(04) VALUE ZERO.
+
+       EXEC SQL END DECLARE SECTION END-EXEC.
+
+       EXEC SQL INCLUDE SQLCA END-EXEC.
+      ******************************************************************
+       PROCEDURE                   DIVISION.
+      ******************************************************************
+       MAIN-RTN.
+           PERFORM SETUP-DB.
+           PERFORM FETCH-DB.
+           PERFORM CLEANUP-DB.
+       MAIN-EXT.
+           STOP RUN.
+
+      ******************************************************************
+       SETUP-DB.
+      ******************************************************************
+
+           MOVE  "<|DB_NAME|>@<|DB_HOST|>:<|DB_PORT|>"
+             TO DBNAME.
+           MOVE  "<|DB_USER|>"
+             TO USERNAME.
+           MOVE  "<|DB_PASSWORD|>"
+             TO PASSWD.
+
+           EXEC SQL
+               CONNECT :USERNAME IDENTIFIED BY :PASSWD USING :DBNAME
+           END-EXEC.
+
+           EXEC SQL
+               DROP TABLE IF EXISTS EMP
+           END-EXEC.
+
+           EXEC SQL
+                CREATE TABLE EMP
+                (
+                    EMP_NO     NUMERIC(4,0) NOT NULL,
+                    EMP_NAME   CHAR(20),
+                    EMP_SALARY NUMERIC(4,0),
+                    CONSTRAINT IEMP_0 PRIMARY KEY (EMP_NO)
+                )
+           END-EXEC.
+
+      *    INSERT ROWS USING HOST VARIABLE
+           PERFORM VARYING IDX FROM 1 BY 1 UNTIL IDX > 10
+              MOVE TEST-NO(IDX)     TO  EMP-NO
+              MOVE TEST-NAME(IDX)   TO  EMP-NAME
+              MOVE TEST-SALARY(IDX) TO  EMP-SALARY
+              EXEC SQL
+                 INSERT INTO EMP VALUES
+                        (:EMP-NO,:EMP-NAME,:EMP-SALARY)
+              END-EXEC
+           END-PERFORM.
+
+      ******************************************************************
+       FETCH-DB.
+      ******************************************************************
+      *    DECLARE CURSOR
+           EXEC SQL
+               DECLARE C1 CURSOR FOR
+               SELECT EMP_NO, EMP_NAME, EMP_SALARY
+                      FROM EMP
+                      ORDER BY EMP_NO
+           END-EXEC.
+      *    OPEN CURSOR
+           EXEC SQL
+               OPEN C1
+           END-EXEC.
+      *    FETCH CURSOR
+           EXEC SQL
+               FETCH C1 INTO :MULTI-REC-VARS, :M-EMP-SALARY
+           END-EXEC.
+           PERFORM UNTIL SQLCODE NOT = ZERO
+              DISPLAY M-EMP-NO ", "
+                      M-EMP-NAME ", "
+                      M-EMP-SALARY
+              EXEC SQL
+                  FETCH C1 INTO :MULTI-REC-VARS, :M-EMP-SALARY
+              END-EXEC
+           END-PERFORM.
+
+      ******************************************************************
+       CLEANUP-DB.
+      ******************************************************************
+           EXEC SQL
+               CLOSE C1
+           END-EXEC.
+
+           EXEC SQL
+               DROP TABLE IF EXISTS EMP
+           END-EXEC.
+
+           EXEC SQL
+               DISCONNECT ALL
+           END-EXEC.
+
+_ATEOF
+
+{ set +x
+$as_echo "$at_srcdir/fetch.at:510: ocesql prog.cbl prog.cob > /dev/null"
+at_fn_check_prepare_trace "fetch.at:510"
+( $at_check_trace; ocesql prog.cbl prog.cob > /dev/null
+) >>"$at_stdout" 2>>"$at_stderr" 5>&-
+at_status=$? at_failed=false
+$at_check_filter
+at_fn_diff_devnull "$at_stderr" || at_failed=:
+at_fn_diff_devnull "$at_stdout" || at_failed=:
+at_fn_check_status 0 $at_status "$at_srcdir/fetch.at:510"
+$at_failed && at_fn_log_failure
+$at_traceon; }
+
+{ set +x
+$as_echo "$at_srcdir/fetch.at:511: \${EMBED_DB_INFO} prog.cob"
+at_fn_check_prepare_notrace 'a ${...} parameter expansion' "fetch.at:511"
+( $at_check_trace; ${EMBED_DB_INFO} prog.cob
+) >>"$at_stdout" 2>>"$at_stderr" 5>&-
+at_status=$? at_failed=false
+$at_check_filter
+at_fn_diff_devnull "$at_stderr" || at_failed=:
+at_fn_diff_devnull "$at_stdout" || at_failed=:
+at_fn_check_status 0 $at_status "$at_srcdir/fetch.at:511"
+$at_failed && at_fn_log_failure
+$at_traceon; }
+
+{ set +x
+$as_echo "$at_srcdir/fetch.at:512: \${COMPILE_MODULE} prog.cob"
+at_fn_check_prepare_notrace 'a ${...} parameter expansion' "fetch.at:512"
+( $at_check_trace; ${COMPILE_MODULE} prog.cob
+) >>"$at_stdout" 2>>"$at_stderr" 5>&-
+at_status=$? at_failed=false
+$at_check_filter
+at_fn_diff_devnull "$at_stderr" || at_failed=:
+at_fn_diff_devnull "$at_stdout" || at_failed=:
+at_fn_check_status 0 $at_status "$at_srcdir/fetch.at:512"
+$at_failed && at_fn_log_failure
+$at_traceon; }
+
+{ set +x
+$as_echo "$at_srcdir/fetch.at:513: \${RUN_MODULE} prog 2> /dev/null"
+at_fn_check_prepare_notrace 'a ${...} parameter expansion' "fetch.at:513"
+( $at_check_trace; ${RUN_MODULE} prog 2> /dev/null
+) >>"$at_stdout" 2>>"$at_stderr" 5>&-
+at_status=$? at_failed=false
+$at_check_filter
+at_fn_diff_devnull "$at_stderr" || at_failed=:
+echo >>"$at_stdout"; $as_echo "+0001, 北海　太郎          , +0400
++0002, 青森　次郎          , +0350
++0003, 秋田　三郎          , +0300
++0004, 岩手　四郎          , -0250
++0005, 宮城　五郎          , -0200
++0006, 福島　六郎          , +0150
++0007, 栃木　七郎          , -0100
++0008, 茨城　八郎          , +0050
++0009, 群馬　九郎          , -0200
++0010, 埼玉　十\郎          , +0350
+" | \
+  $at_diff - "$at_stdout" || at_failed=:
+at_fn_check_status 0 $at_status "$at_srcdir/fetch.at:513"
+$at_failed && at_fn_log_failure
+$at_traceon; }
+
+
+  set +x
+  $at_times_p && times >"$at_times_file"
+) 5>&1 2>&1 7>&- | eval $at_tee_pipe
+read at_status <"$at_status_file"
+#AT_STOP_8
+#AT_START_9
+at_fn_group_banner 9 'delete.at:1' \
+  "delete statement test" "                          "
+at_xfail=no
+(
+  $as_echo "9. $at_setup_line: testing $at_desc ..."
   $at_traceon
 
 
@@ -3497,13 +3960,13 @@ $at_traceon; }
   $at_times_p && times >"$at_times_file"
 ) 5>&1 2>&1 7>&- | eval $at_tee_pipe
 read at_status <"$at_status_file"
-#AT_STOP_7
-#AT_START_8
-at_fn_group_banner 8 'commit-rollback.at:1' \
+#AT_STOP_9
+#AT_START_10
+at_fn_group_banner 10 'commit-rollback.at:1' \
   "commit and rollback statement test" "             "
 at_xfail=no
 (
-  $as_echo "8. $at_setup_line: testing $at_desc ..."
+  $as_echo "10. $at_setup_line: testing $at_desc ..."
   $at_traceon
 
 
@@ -3768,13 +4231,13 @@ $at_traceon; }
   $at_times_p && times >"$at_times_file"
 ) 5>&1 2>&1 7>&- | eval $at_tee_pipe
 read at_status <"$at_status_file"
-#AT_STOP_8
-#AT_START_9
-at_fn_group_banner 9 'select.at:1' \
+#AT_STOP_10
+#AT_START_11
+at_fn_group_banner 11 'select.at:1' \
   "select statement test" "                          "
 at_xfail=no
 (
-  $as_echo "9. $at_setup_line: testing $at_desc ..."
+  $as_echo "11. $at_setup_line: testing $at_desc ..."
   $at_traceon
 
 
@@ -4016,13 +4479,13 @@ $at_traceon; }
   $at_times_p && times >"$at_times_file"
 ) 5>&1 2>&1 7>&- | eval $at_tee_pipe
 read at_status <"$at_status_file"
-#AT_STOP_9
-#AT_START_10
-at_fn_group_banner 10 'update.at:1' \
+#AT_STOP_11
+#AT_START_12
+at_fn_group_banner 12 'update.at:1' \
   "update statement test" "                          "
 at_xfail=no
 (
-  $as_echo "10. $at_setup_line: testing $at_desc ..."
+  $as_echo "12. $at_setup_line: testing $at_desc ..."
   $at_traceon
 
 
@@ -4275,13 +4738,13 @@ $at_traceon; }
   $at_times_p && times >"$at_times_file"
 ) 5>&1 2>&1 7>&- | eval $at_tee_pipe
 read at_status <"$at_status_file"
-#AT_STOP_10
-#AT_START_11
-at_fn_group_banner 11 'include.at:1' \
+#AT_STOP_12
+#AT_START_13
+at_fn_group_banner 13 'include.at:1' \
   "use include variable" "                           "
 at_xfail=no
 (
-  $as_echo "11. $at_setup_line: testing $at_desc ..."
+  $as_echo "13. $at_setup_line: testing $at_desc ..."
   $at_traceon
 
 
@@ -4414,13 +4877,13 @@ $at_traceon; }
   $at_times_p && times >"$at_times_file"
 ) 5>&1 2>&1 7>&- | eval $at_tee_pipe
 read at_status <"$at_status_file"
-#AT_STOP_11
-#AT_START_12
-at_fn_group_banner 12 'include.at:100' \
+#AT_STOP_13
+#AT_START_14
+at_fn_group_banner 14 'include.at:100' \
   "use include variable with gropu insert" "         "
 at_xfail=no
 (
-  $as_echo "12. $at_setup_line: testing $at_desc ..."
+  $as_echo "14. $at_setup_line: testing $at_desc ..."
   $at_traceon
 
 
@@ -4553,4 +5016,4 @@ $at_traceon; }
   $at_times_p && times >"$at_times_file"
 ) 5>&1 2>&1 7>&- | eval $at_tee_pipe
 read at_status <"$at_status_file"
-#AT_STOP_12
+#AT_STOP_14
