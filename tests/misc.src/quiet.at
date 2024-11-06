@@ -1,0 +1,115 @@
+AT_SETUP([quiet option test])
+
+AT_DATA([prog1.cbl], [        IDENTIFICATION      DIVISION.
+        PROGRAM-ID.         prog1.
+        DATA                DIVISION.
+        WORKING-STORAGE     SECTION.
+        01 TEST-CASE-COUNT  PIC 9999 VALUE 1.
+
+        EXEC SQL BEGIN DECLARE SECTION END-EXEC.
+        01  DBNAME PIC X(30) VALUE SPACE.
+        01  USERNAME  PIC X(30) VALUE SPACE.
+        01  PASSWD  PIC X(30) VALUE SPACE.
+        EXEC SQL END DECLARE SECTION END-EXEC.
+
+        EXEC SQL INCLUDE SQLCA END-EXEC.
+
+        PROCEDURE           DIVISION.
+        MAIN-RTN.
+            MOVE  "<|DB_NAME|>@<|DB_HOST|>:<|DB_PORT|>"
+              TO DBNAME.
+            MOVE  "<|DB_USER|>"
+              TO USERNAME.
+            MOVE  "<|DB_PASSWORD|>"
+              TO PASSWD.
+        
+            EXEC SQL
+              CONNECT :USERNAME IDENTIFIED BY :PASSWD USING :DBNAME
+            END-EXEC.
+
+            EXEC SQL
+                DISCONNECT ALL
+            END-EXEC.
+
+            STOP RUN.
+])
+
+# standard output
+AT_CHECK([printf "precompile start: prog1.cbl\n=======================================================\n              LIST OF CALLED DB Library API            \n=======================================================\nGenerate:OCESQLConnect\nGenerate:OCESQLDisconnect\n=======================================================\n" > expected_output_prog1.txt])
+AT_CHECK([${OCESQL} prog1.cbl prog1.cob > output_prog1.txt], [0])
+AT_CHECK([diff expected_output_prog1.txt output_prog1.txt], [0])
+
+AT_CHECK([${OCESQL} -q prog1.cbl prog1.cob], [0])
+AT_CHECK([${OCESQL} --quiet prog1.cbl prog1.cob], [0])
+
+AT_DATA([prog2.cbl], [        IDENTIFICATION      DIVISION.
+        PROGRAM-ID.         prog2.
+        DATA                DIVISION.
+        WORKING-STORAGE     SECTION.
+        PROCEDURE           DIVISION.
+        MAIN-RTN.
+            DISPLAY "HELLO, WORLD".
+            STOP RUN.
+])
+
+# no EXEC SQL
+AT_CHECK([printf "precompile start: prog2.cbl\n=======================================================\n              LIST OF CALLED DB Library API            \n=======================================================\n=======================================================\n" > expected_output_prog2.txt])
+AT_CHECK([${OCESQL} prog2.cbl prog2.cob > output_prog2.txt], [0])
+AT_CHECK([diff expected_output_prog2.txt output_prog2.txt], [0])
+
+AT_CHECK([${OCESQL} -q prog2.cbl prog2.cob], [0])
+AT_CHECK([diff prog2.cbl prog2.cob], [0])
+AT_CHECK([${OCESQL} --quiet prog2.cbl prog2.cob], [0])
+AT_CHECK([diff prog2.cbl prog2.cob], [0])
+
+AT_DATA([prog3.cbl], [        IDENTIFICATION      DIVISION.
+        PROGRAM-ID.         prog3.
+        DATA                DIVISION.
+        WORKING-STORAGE     SECTION.
+        01 TEST-CASE-COUNT  PIC 9999 VALUE 1.
+
+        EXEC SQL BEGIN DECLARE SECTION END-EXEC.
+        01  DBNAME PIC X(30) VALUE SPACE.
+        01  USERNAME  PIC X(30) VALUE SPACE.
+        01  PASSWD  PIC X(30) VALUE SPACE.
+        EXEC SQL END DECLARE SECTION END-EXEC.
+
+        EXEC SQL INCLUDE SQLCA END-EXEC.
+
+        PROCEDURE           DIVISION.
+        MAIN-RTN.
+            MOVE  "<|DB_NAME|>@<|DB_HOST|>:<|DB_PORT|>"
+              TO DBNAME.
+            MOVE  "<|DB_USER|>"
+              TO USERNAME.
+            MOVE  "<|DB_PASSWORD|>"
+              TO PASSWD.
+        
+            EXEC SQL
+                    CONNECT :USERNAME IDENTIFIED BY :PASSWD USING :DBNAME
+            END-EXEC.
+
+            EXEC SQL
+                DISCONNECT ALL
+            END-EXEC.
+
+            STOP RUN.
+])
+
+# translate error
+AT_CHECK([printf "translate error\n" > expected_error.txt])
+AT_CHECK([${OCESQL} prog3.cbl prog3.cob | grep "translate error" > error.txt], [0])
+AT_CHECK([diff expected_error.txt error.txt], [0])
+
+AT_CHECK([${OCESQL} -q prog3.cbl prog3.cob | grep "translate error" > error.txt], [0])
+AT_CHECK([diff expected_error.txt error.txt], [0])
+
+AT_CHECK([${OCESQL} --quiet prog3.cbl prog3.cob | grep "translate error" > error.txt], [0])
+AT_CHECK([diff expected_error.txt error.txt], [0])
+
+# whether help display
+AT_CHECK([printf "      -q, --quiet            control stdout when precompiling\n" > expected_output_help.txt])
+AT_CHECK([${OCESQL} --help | grep '\--quiet' > output_help.txt], [0])
+AT_CHECK([diff expected_output_help.txt output_help.txt], [0])
+
+AT_CLEANUP

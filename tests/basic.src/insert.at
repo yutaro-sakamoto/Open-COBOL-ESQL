@@ -9,16 +9,16 @@ AT_DATA([prog.cbl], [
       ******************************************************************
        WORKING-STORAGE             SECTION.
        01  TEST-DATA.
-         03 FILLER       PIC X(28) VALUE "0001北海　太郎          0400".
-         03 FILLER       PIC X(28) VALUE "0002青森　次郎          0350".
-         03 FILLER       PIC X(28) VALUE "0003秋田　三郎          0300".
-         03 FILLER       PIC X(28) VALUE "0004岩手　四郎          025p".
-         03 FILLER       PIC X(28) VALUE "0005宮城　五郎          020p".
-         03 FILLER       PIC X(28) VALUE "0006福島　六郎          0150".
-         03 FILLER       PIC X(28) VALUE "0007栃木　七郎          010p".
-         03 FILLER       PIC X(28) VALUE "0008茨城　八郎          0050".
-         03 FILLER       PIC X(28) VALUE "0009群馬　九郎          020p".
-         03 FILLER       PIC X(28) VALUE "0010埼玉　十郎          0350".
+         03 FILLER       PIC X(28) VALUE "0001AAAAA               0400".
+         03 FILLER       PIC X(28) VALUE "0002BBBBB               0350".
+         03 FILLER       PIC X(28) VALUE "0003CCCCC               0300".
+         03 FILLER       PIC X(28) VALUE "0004DDDDD               025p".
+         03 FILLER       PIC X(28) VALUE "0005EEEEE               020p".
+         03 FILLER       PIC X(28) VALUE "0006FFFFF               0150".
+         03 FILLER       PIC X(28) VALUE "0007GGGGG               010p".
+         03 FILLER       PIC X(28) VALUE "0008HHHHH               0050".
+         03 FILLER       PIC X(28) VALUE "0009IIIII               020p".
+         03 FILLER       PIC X(28) VALUE "0010JJJJJ               0350".
 
        01  TEST-DATA-R   REDEFINES TEST-DATA.
          03  TEST-TBL    OCCURS  10.
@@ -171,16 +171,16 @@ AT_DATA([prog.cbl], [
       ******************************************************************
        WORKING-STORAGE             SECTION.
        01  TEST-DATA.
-         03 FILLER       PIC X(28) VALUE "0001北海　太郎          0400".
-         03 FILLER       PIC X(28) VALUE "0002青森　次郎          0350".
-         03 FILLER       PIC X(28) VALUE "0003秋田　三郎          0300".
-         03 FILLER       PIC X(28) VALUE "0004岩手　四郎          025p".
-         03 FILLER       PIC X(28) VALUE "0005宮城　五郎          020p".
-         03 FILLER       PIC X(28) VALUE "0006福島　六郎          0150".
-         03 FILLER       PIC X(28) VALUE "0007栃木　七郎          010p".
-         03 FILLER       PIC X(28) VALUE "0008茨城　八郎          0050".
-         03 FILLER       PIC X(28) VALUE "0009群馬　九郎          020p".
-         03 FILLER       PIC X(28) VALUE "0010埼玉　十郎          0350".
+         03 FILLER       PIC X(28) VALUE "0001AAAAA               0400".
+         03 FILLER       PIC X(28) VALUE "0002BBBBB               0350".
+         03 FILLER       PIC X(28) VALUE "0003CCCCC               0300".
+         03 FILLER       PIC X(28) VALUE "0004DDDDD               025p".
+         03 FILLER       PIC X(28) VALUE "0005EEEEE               020p".
+         03 FILLER       PIC X(28) VALUE "0006FFFFF               0150".
+         03 FILLER       PIC X(28) VALUE "0007GGGGG               010p".
+         03 FILLER       PIC X(28) VALUE "0008HHHHH               0050".
+         03 FILLER       PIC X(28) VALUE "0009IIIII               020p".
+         03 FILLER       PIC X(28) VALUE "0010JJJJJ               0350".
 
        01  TEST-DATA-R   REDEFINES TEST-DATA.
          03  TEST-TBL    OCCURS  10.
