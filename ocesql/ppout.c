@@ -761,10 +761,10 @@ void ppoutputfetch(struct cb_exec_list *list){
 							buff);
 			return;
 		}
+		
+		struct cb_field *parent, *child;
+		parent = getfieldbyname(res_host_list->hostreference);
 		if(type == HVARTYPE_GROUP){
-			struct cb_field *parent, *child;
-
-			parent = getfieldbyname(res_host_list->hostreference);
 			if(parent == NULL){
 				printmsg("%s:%d\n", res_host_list->hostreference, ERR_NOTDEF_WORKING);
 				memset(buff, 0, sizeof(buff));
@@ -805,6 +805,9 @@ void ppoutputfetch(struct cb_exec_list *list){
 					return;
 				}
 			}
+		} else if (parent->occurs){
+			iteration = parent->occurs;
+			ppoutputresparam(res_host_list->hostreference, type, digits, scale,iteration);
 		} else {
 			is_fetch_occurs = 0;
 			ppoutputresparam(res_host_list->hostreference, type, digits, scale,iteration);
@@ -832,7 +835,6 @@ void ppoutputfetch(struct cb_exec_list *list){
 		memset(buff, 0, sizeof(buff));
 		com_sprintf(buff,sizeof(buff), "OCESQL%5sEND-CALL\n", " ");
 		fputs(buff, outfile);
-
 		memset(buff, 0, sizeof(buff));
 		com_sprintf(buff,sizeof(buff), "OCESQL%5sCALL \"OCESQLCursorFetchOccurs\" USING\n" ," ");
 		fputs(buff, outfile);
@@ -1682,7 +1684,6 @@ void ppbuff(struct cb_exec_list *list){
 				}
 
 				child = parent->children;
-
 				if(parent->occurs){
 					iteration = parent->occurs;
 					occurs_is_parent = 1;
@@ -2215,7 +2216,6 @@ int get_host_group_length(struct cb_field *field, int *length){
 
 int get_host_group_table_info(struct cb_field *field, int *iteration, int *length){
 	if(field == NULL) return 0;
-
 	if(field->occurs){
 		if(*iteration == -1 || field->occurs < *iteration){
 			*iteration = field->occurs;

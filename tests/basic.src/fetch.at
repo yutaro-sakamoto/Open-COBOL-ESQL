@@ -230,6 +230,11 @@ AT_DATA([prog.cbl], [
          03  O-EMP-NAME            PIC  X(20) .
          03  O-EMP-SALARY          PIC S9(04) VALUE ZERO.
 
+       01  OCCURS-03-EMP-REC.
+         03  OCCURS-O-EMP-NO       PIC S9(04) VALUE ZERO OCCURS 3.
+         03  OCCURS-O-EMP-NAME     PIC  X(20) OCCURS 3.
+         03  OCCURS-O-EMP-SALARY   PIC S9(04) VALUE ZERO OCCURS 3.
+
        EXEC SQL END DECLARE SECTION END-EXEC.
 
        EXEC SQL INCLUDE SQLCA END-EXEC.
@@ -238,7 +243,8 @@ AT_DATA([prog.cbl], [
       ******************************************************************
        MAIN-RTN.
            PERFORM SETUP-DB.
-           PERFORM FETCH-DB.
+           PERFORM FETCH-DB-1.
+           PERFORM FETCH-DB-2.
            PERFORM CLEANUP-DB.
        MAIN-EXT.
            STOP RUN.
@@ -285,7 +291,7 @@ AT_DATA([prog.cbl], [
            END-PERFORM.
 
       ******************************************************************
-       FETCH-DB.
+       FETCH-DB-1.
       ******************************************************************
       *    DECLARE CURSOR
            EXEC SQL 
@@ -312,6 +318,27 @@ AT_DATA([prog.cbl], [
            END-PERFORM.
 
       ******************************************************************
+       FETCH-DB-2.
+      ******************************************************************           
+      *    OPEN CURSOR
+           EXEC SQL
+               OPEN C1
+           END-EXEC.
+      *    FETCH CURSOR
+           EXEC SQL 
+           FETCH C1 INTO :OCCURS-O-EMP-NO, 
+           :OCCURS-O-EMP-NAME, :OCCURS-O-EMP-SALARY
+           END-EXEC.
+           PERFORM UNTIL SQLCODE NOT = ZERO
+              PERFORM DISPLAY-OCCURS-03-EMP-REC
+              MOVE SPACE TO OCCURS-03-EMP-REC
+              EXEC SQL 
+                  FETCH C1 INTO :OCCURS-O-EMP-NO, 
+                   :OCCURS-O-EMP-NAME, :OCCURS-O-EMP-SALARY
+              END-EXEC
+           END-PERFORM.
+
+      ******************************************************************
        DISPLAY-OCCURS-EMP-REC.
       ******************************************************************
            MOVE SQLERRD(3) TO FETCH-COUNT.
@@ -325,6 +352,23 @@ AT_DATA([prog.cbl], [
               DISPLAY O-EMP-NO(IDX) ", "
                       O-EMP-NAME(IDX) ", "
                       O-EMP-SALARY(IDX)
+           END-PERFORM.
+      ******************************************************************
+       DISPLAY-OCCURS-03-EMP-REC.
+      ******************************************************************
+           MOVE SQLERRD(3) TO FETCH-COUNT.
+           DISPLAY FETCH-COUNT.
+           PERFORM VARYING IDX FROM 1 BY 1 UNTIL IDX > 3
+              IF OCCURS-O-EMP-NO(IDX) = LOW-VALUE 
+               OR OCCURS-O-EMP-NAME(IDX) = LOW-VALUE
+               OR OCCURS-O-EMP-SALARY(IDX) = LOW-VALUE
+                    MOVE ZERO TO OCCURS-O-EMP-NO(IDX)
+                    MOVE SPACE TO OCCURS-O-EMP-NAME(IDX)
+                    MOVE ZERO TO OCCURS-O-EMP-SALARY(IDX)
+              END-IF
+              DISPLAY OCCURS-O-EMP-NO(IDX) ", "
+                      OCCURS-O-EMP-NAME(IDX) ", "
+                      OCCURS-O-EMP-SALARY(IDX)
            END-PERFORM.
 
       ******************************************************************
@@ -360,6 +404,22 @@ AT_CHECK([${RUN_MODULE} prog 2> /dev/null], [0],
 +0008, 茨城　八郎          , +0050
 +0009, 群馬　九郎          , -0200
 0010
++0010, 埼玉　十郎          , +0350
++0000,                     , +0000
++0000,                     , +0000
+0013
++0001, 北海　太郎          , +0400
++0002, 青森　次郎          , +0350
++0003, 秋田　三郎          , +0300
+0016
++0004, 岩手　四郎          , -0250
++0005, 宮城　五郎          , -0200
++0006, 福島　六郎          , +0150
+0019
++0007, 栃木　七郎          , -0100
++0008, 茨城　八郎          , +0050
++0009, 群馬　九郎          , -0200
+0020
 +0010, 埼玉　十郎          , +0350
 +0000,                     , +0000
 +0000,                     , +0000
