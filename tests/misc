@@ -614,6 +614,7 @@ at_help_all="1;empty-string.at:1;empty string test;;
 2;compile.at:1;generate-correct-files;;
 3;compile.at:21;n-value;;
 4;compile.at:40;nc-value;;
+5;quiet.at:1;quiet option test;;
 "
 # List of the all the test groups.
 at_groups_all=`printf "%s\n" "$at_help_all" | sed 's/;.*//'`
@@ -627,7 +628,7 @@ at_fn_validate_ranges ()
   for at_grp
   do
     eval at_value=\$$at_grp
-    if test $at_value -lt 1 || test $at_value -gt 4; then
+    if test $at_value -lt 1 || test $at_value -gt 5; then
       printf "%s\n" "invalid test group: $at_value" >&2
       exit 1
     fi
@@ -2213,3 +2214,399 @@ $at_traceon; }
 ) 5>&1 2>&1 7>&- | eval $at_tee_pipe
 read at_status <"$at_status_file"
 #AT_STOP_4
+#AT_START_5
+at_fn_group_banner 5 'quiet.at:1' \
+  "quiet option test" "                              "
+at_xfail=no
+(
+  printf "%s\n" "5. $at_setup_line: testing $at_desc ..."
+  $at_traceon
+
+
+cat >prog1.cbl <<'_ATEOF'
+        IDENTIFICATION      DIVISION.
+        PROGRAM-ID.         prog1.
+        DATA                DIVISION.
+        WORKING-STORAGE     SECTION.
+        01 TEST-CASE-COUNT  PIC 9999 VALUE 1.
+
+        EXEC SQL BEGIN DECLARE SECTION END-EXEC.
+        01  DBNAME PIC X(30) VALUE SPACE.
+        01  USERNAME  PIC X(30) VALUE SPACE.
+        01  PASSWD  PIC X(30) VALUE SPACE.
+        EXEC SQL END DECLARE SECTION END-EXEC.
+
+        EXEC SQL INCLUDE SQLCA END-EXEC.
+
+        PROCEDURE           DIVISION.
+        MAIN-RTN.
+            MOVE  "<|DB_NAME|>@<|DB_HOST|>:<|DB_PORT|>"
+              TO DBNAME.
+            MOVE  "<|DB_USER|>"
+              TO USERNAME.
+            MOVE  "<|DB_PASSWORD|>"
+              TO PASSWD.
+
+            EXEC SQL
+              CONNECT :USERNAME IDENTIFIED BY :PASSWD USING :DBNAME
+            END-EXEC.
+
+            EXEC SQL
+                DISCONNECT ALL
+            END-EXEC.
+
+            STOP RUN.
+_ATEOF
+
+
+# standard output
+{ set +x
+printf "%s\n" "$at_srcdir/quiet.at:38: printf \"precompile start: prog1.cbl\\n=======================================================\\n              LIST OF CALLED DB Library API            \\n=======================================================\\nGenerate:OCESQLConnect\\nGenerate:OCESQLDisconnect\\n=======================================================\\n\" > expected_output_prog1.txt"
+at_fn_check_prepare_trace "quiet.at:38"
+( $at_check_trace; printf "precompile start: prog1.cbl\n=======================================================\n              LIST OF CALLED DB Library API            \n=======================================================\nGenerate:OCESQLConnect\nGenerate:OCESQLDisconnect\n=======================================================\n" > expected_output_prog1.txt
+) >>"$at_stdout" 2>>"$at_stderr" 5>&-
+at_status=$? at_failed=false
+$at_check_filter
+at_fn_diff_devnull "$at_stderr" || at_failed=:
+at_fn_diff_devnull "$at_stdout" || at_failed=:
+at_fn_check_status 0 $at_status "$at_srcdir/quiet.at:38"
+$at_failed && at_fn_log_failure
+$at_traceon; }
+
+{ set +x
+printf "%s\n" "$at_srcdir/quiet.at:39: \${OCESQL} prog1.cbl prog1.cob > output_prog1.txt"
+at_fn_check_prepare_notrace 'a ${...} parameter expansion' "quiet.at:39"
+( $at_check_trace; ${OCESQL} prog1.cbl prog1.cob > output_prog1.txt
+) >>"$at_stdout" 2>>"$at_stderr" 5>&-
+at_status=$? at_failed=false
+$at_check_filter
+at_fn_diff_devnull "$at_stderr" || at_failed=:
+at_fn_diff_devnull "$at_stdout" || at_failed=:
+at_fn_check_status 0 $at_status "$at_srcdir/quiet.at:39"
+$at_failed && at_fn_log_failure
+$at_traceon; }
+
+{ set +x
+printf "%s\n" "$at_srcdir/quiet.at:40: diff expected_output_prog1.txt output_prog1.txt"
+at_fn_check_prepare_trace "quiet.at:40"
+( $at_check_trace; diff expected_output_prog1.txt output_prog1.txt
+) >>"$at_stdout" 2>>"$at_stderr" 5>&-
+at_status=$? at_failed=false
+$at_check_filter
+at_fn_diff_devnull "$at_stderr" || at_failed=:
+at_fn_diff_devnull "$at_stdout" || at_failed=:
+at_fn_check_status 0 $at_status "$at_srcdir/quiet.at:40"
+$at_failed && at_fn_log_failure
+$at_traceon; }
+
+
+{ set +x
+printf "%s\n" "$at_srcdir/quiet.at:42: \${OCESQL} -q prog1.cbl prog1.cob"
+at_fn_check_prepare_notrace 'a ${...} parameter expansion' "quiet.at:42"
+( $at_check_trace; ${OCESQL} -q prog1.cbl prog1.cob
+) >>"$at_stdout" 2>>"$at_stderr" 5>&-
+at_status=$? at_failed=false
+$at_check_filter
+at_fn_diff_devnull "$at_stderr" || at_failed=:
+at_fn_diff_devnull "$at_stdout" || at_failed=:
+at_fn_check_status 0 $at_status "$at_srcdir/quiet.at:42"
+$at_failed && at_fn_log_failure
+$at_traceon; }
+
+{ set +x
+printf "%s\n" "$at_srcdir/quiet.at:43: \${OCESQL} --quiet prog1.cbl prog1.cob"
+at_fn_check_prepare_notrace 'a ${...} parameter expansion' "quiet.at:43"
+( $at_check_trace; ${OCESQL} --quiet prog1.cbl prog1.cob
+) >>"$at_stdout" 2>>"$at_stderr" 5>&-
+at_status=$? at_failed=false
+$at_check_filter
+at_fn_diff_devnull "$at_stderr" || at_failed=:
+at_fn_diff_devnull "$at_stdout" || at_failed=:
+at_fn_check_status 0 $at_status "$at_srcdir/quiet.at:43"
+$at_failed && at_fn_log_failure
+$at_traceon; }
+
+
+cat >prog2.cbl <<'_ATEOF'
+        IDENTIFICATION      DIVISION.
+        PROGRAM-ID.         prog2.
+        DATA                DIVISION.
+        WORKING-STORAGE     SECTION.
+        PROCEDURE           DIVISION.
+        MAIN-RTN.
+            DISPLAY "HELLO, WORLD".
+            STOP RUN.
+_ATEOF
+
+
+# no EXEC SQL
+{ set +x
+printf "%s\n" "$at_srcdir/quiet.at:56: printf \"precompile start: prog2.cbl\\n=======================================================\\n              LIST OF CALLED DB Library API            \\n=======================================================\\n=======================================================\\n\" > expected_output_prog2.txt"
+at_fn_check_prepare_trace "quiet.at:56"
+( $at_check_trace; printf "precompile start: prog2.cbl\n=======================================================\n              LIST OF CALLED DB Library API            \n=======================================================\n=======================================================\n" > expected_output_prog2.txt
+) >>"$at_stdout" 2>>"$at_stderr" 5>&-
+at_status=$? at_failed=false
+$at_check_filter
+at_fn_diff_devnull "$at_stderr" || at_failed=:
+at_fn_diff_devnull "$at_stdout" || at_failed=:
+at_fn_check_status 0 $at_status "$at_srcdir/quiet.at:56"
+$at_failed && at_fn_log_failure
+$at_traceon; }
+
+{ set +x
+printf "%s\n" "$at_srcdir/quiet.at:57: \${OCESQL} prog2.cbl prog2.cob > output_prog2.txt"
+at_fn_check_prepare_notrace 'a ${...} parameter expansion' "quiet.at:57"
+( $at_check_trace; ${OCESQL} prog2.cbl prog2.cob > output_prog2.txt
+) >>"$at_stdout" 2>>"$at_stderr" 5>&-
+at_status=$? at_failed=false
+$at_check_filter
+at_fn_diff_devnull "$at_stderr" || at_failed=:
+at_fn_diff_devnull "$at_stdout" || at_failed=:
+at_fn_check_status 0 $at_status "$at_srcdir/quiet.at:57"
+$at_failed && at_fn_log_failure
+$at_traceon; }
+
+{ set +x
+printf "%s\n" "$at_srcdir/quiet.at:58: diff expected_output_prog2.txt output_prog2.txt"
+at_fn_check_prepare_trace "quiet.at:58"
+( $at_check_trace; diff expected_output_prog2.txt output_prog2.txt
+) >>"$at_stdout" 2>>"$at_stderr" 5>&-
+at_status=$? at_failed=false
+$at_check_filter
+at_fn_diff_devnull "$at_stderr" || at_failed=:
+at_fn_diff_devnull "$at_stdout" || at_failed=:
+at_fn_check_status 0 $at_status "$at_srcdir/quiet.at:58"
+$at_failed && at_fn_log_failure
+$at_traceon; }
+
+
+{ set +x
+printf "%s\n" "$at_srcdir/quiet.at:60: \${OCESQL} -q prog2.cbl prog2.cob"
+at_fn_check_prepare_notrace 'a ${...} parameter expansion' "quiet.at:60"
+( $at_check_trace; ${OCESQL} -q prog2.cbl prog2.cob
+) >>"$at_stdout" 2>>"$at_stderr" 5>&-
+at_status=$? at_failed=false
+$at_check_filter
+at_fn_diff_devnull "$at_stderr" || at_failed=:
+at_fn_diff_devnull "$at_stdout" || at_failed=:
+at_fn_check_status 0 $at_status "$at_srcdir/quiet.at:60"
+$at_failed && at_fn_log_failure
+$at_traceon; }
+
+{ set +x
+printf "%s\n" "$at_srcdir/quiet.at:61: diff prog2.cbl prog2.cob"
+at_fn_check_prepare_trace "quiet.at:61"
+( $at_check_trace; diff prog2.cbl prog2.cob
+) >>"$at_stdout" 2>>"$at_stderr" 5>&-
+at_status=$? at_failed=false
+$at_check_filter
+at_fn_diff_devnull "$at_stderr" || at_failed=:
+at_fn_diff_devnull "$at_stdout" || at_failed=:
+at_fn_check_status 0 $at_status "$at_srcdir/quiet.at:61"
+$at_failed && at_fn_log_failure
+$at_traceon; }
+
+{ set +x
+printf "%s\n" "$at_srcdir/quiet.at:62: \${OCESQL} --quiet prog2.cbl prog2.cob"
+at_fn_check_prepare_notrace 'a ${...} parameter expansion' "quiet.at:62"
+( $at_check_trace; ${OCESQL} --quiet prog2.cbl prog2.cob
+) >>"$at_stdout" 2>>"$at_stderr" 5>&-
+at_status=$? at_failed=false
+$at_check_filter
+at_fn_diff_devnull "$at_stderr" || at_failed=:
+at_fn_diff_devnull "$at_stdout" || at_failed=:
+at_fn_check_status 0 $at_status "$at_srcdir/quiet.at:62"
+$at_failed && at_fn_log_failure
+$at_traceon; }
+
+{ set +x
+printf "%s\n" "$at_srcdir/quiet.at:63: diff prog2.cbl prog2.cob"
+at_fn_check_prepare_trace "quiet.at:63"
+( $at_check_trace; diff prog2.cbl prog2.cob
+) >>"$at_stdout" 2>>"$at_stderr" 5>&-
+at_status=$? at_failed=false
+$at_check_filter
+at_fn_diff_devnull "$at_stderr" || at_failed=:
+at_fn_diff_devnull "$at_stdout" || at_failed=:
+at_fn_check_status 0 $at_status "$at_srcdir/quiet.at:63"
+$at_failed && at_fn_log_failure
+$at_traceon; }
+
+
+cat >prog3.cbl <<'_ATEOF'
+        IDENTIFICATION      DIVISION.
+        PROGRAM-ID.         prog3.
+        DATA                DIVISION.
+        WORKING-STORAGE     SECTION.
+        01 TEST-CASE-COUNT  PIC 9999 VALUE 1.
+
+        EXEC SQL BEGIN DECLARE SECTION END-EXEC.
+        01  DBNAME PIC X(30) VALUE SPACE.
+        01  USERNAME  PIC X(30) VALUE SPACE.
+        01  PASSWD  PIC X(30) VALUE SPACE.
+        EXEC SQL END DECLARE SECTION END-EXEC.
+
+        EXEC SQL INCLUDE SQLCA END-EXEC.
+
+        PROCEDURE           DIVISION.
+        MAIN-RTN.
+            MOVE  "<|DB_NAME|>@<|DB_HOST|>:<|DB_PORT|>"
+              TO DBNAME.
+            MOVE  "<|DB_USER|>"
+              TO USERNAME.
+            MOVE  "<|DB_PASSWORD|>"
+              TO PASSWD.
+
+            EXEC SQL
+                    CONNECT :USERNAME IDENTIFIED BY :PASSWD USING :DBNAME
+            END-EXEC.
+
+            EXEC SQL
+                DISCONNECT ALL
+            END-EXEC.
+
+            STOP RUN.
+_ATEOF
+
+
+# translate error
+{ set +x
+printf "%s\n" "$at_srcdir/quiet.at:100: printf \"translate error\\n\" > expected_error.txt"
+at_fn_check_prepare_trace "quiet.at:100"
+( $at_check_trace; printf "translate error\n" > expected_error.txt
+) >>"$at_stdout" 2>>"$at_stderr" 5>&-
+at_status=$? at_failed=false
+$at_check_filter
+at_fn_diff_devnull "$at_stderr" || at_failed=:
+at_fn_diff_devnull "$at_stdout" || at_failed=:
+at_fn_check_status 0 $at_status "$at_srcdir/quiet.at:100"
+$at_failed && at_fn_log_failure
+$at_traceon; }
+
+{ set +x
+printf "%s\n" "$at_srcdir/quiet.at:101: \${OCESQL} prog3.cbl prog3.cob | grep \"translate error\" > error.txt"
+at_fn_check_prepare_notrace 'a ${...} parameter expansion' "quiet.at:101"
+( $at_check_trace; ${OCESQL} prog3.cbl prog3.cob | grep "translate error" > error.txt
+) >>"$at_stdout" 2>>"$at_stderr" 5>&-
+at_status=$? at_failed=false
+$at_check_filter
+at_fn_diff_devnull "$at_stderr" || at_failed=:
+at_fn_diff_devnull "$at_stdout" || at_failed=:
+at_fn_check_status 0 $at_status "$at_srcdir/quiet.at:101"
+$at_failed && at_fn_log_failure
+$at_traceon; }
+
+{ set +x
+printf "%s\n" "$at_srcdir/quiet.at:102: diff expected_error.txt error.txt"
+at_fn_check_prepare_trace "quiet.at:102"
+( $at_check_trace; diff expected_error.txt error.txt
+) >>"$at_stdout" 2>>"$at_stderr" 5>&-
+at_status=$? at_failed=false
+$at_check_filter
+at_fn_diff_devnull "$at_stderr" || at_failed=:
+at_fn_diff_devnull "$at_stdout" || at_failed=:
+at_fn_check_status 0 $at_status "$at_srcdir/quiet.at:102"
+$at_failed && at_fn_log_failure
+$at_traceon; }
+
+
+{ set +x
+printf "%s\n" "$at_srcdir/quiet.at:104: \${OCESQL} -q prog3.cbl prog3.cob | grep \"translate error\" > error.txt"
+at_fn_check_prepare_notrace 'a ${...} parameter expansion' "quiet.at:104"
+( $at_check_trace; ${OCESQL} -q prog3.cbl prog3.cob | grep "translate error" > error.txt
+) >>"$at_stdout" 2>>"$at_stderr" 5>&-
+at_status=$? at_failed=false
+$at_check_filter
+at_fn_diff_devnull "$at_stderr" || at_failed=:
+at_fn_diff_devnull "$at_stdout" || at_failed=:
+at_fn_check_status 0 $at_status "$at_srcdir/quiet.at:104"
+$at_failed && at_fn_log_failure
+$at_traceon; }
+
+{ set +x
+printf "%s\n" "$at_srcdir/quiet.at:105: diff expected_error.txt error.txt"
+at_fn_check_prepare_trace "quiet.at:105"
+( $at_check_trace; diff expected_error.txt error.txt
+) >>"$at_stdout" 2>>"$at_stderr" 5>&-
+at_status=$? at_failed=false
+$at_check_filter
+at_fn_diff_devnull "$at_stderr" || at_failed=:
+at_fn_diff_devnull "$at_stdout" || at_failed=:
+at_fn_check_status 0 $at_status "$at_srcdir/quiet.at:105"
+$at_failed && at_fn_log_failure
+$at_traceon; }
+
+
+{ set +x
+printf "%s\n" "$at_srcdir/quiet.at:107: \${OCESQL} --quiet prog3.cbl prog3.cob | grep \"translate error\" > error.txt"
+at_fn_check_prepare_notrace 'a ${...} parameter expansion' "quiet.at:107"
+( $at_check_trace; ${OCESQL} --quiet prog3.cbl prog3.cob | grep "translate error" > error.txt
+) >>"$at_stdout" 2>>"$at_stderr" 5>&-
+at_status=$? at_failed=false
+$at_check_filter
+at_fn_diff_devnull "$at_stderr" || at_failed=:
+at_fn_diff_devnull "$at_stdout" || at_failed=:
+at_fn_check_status 0 $at_status "$at_srcdir/quiet.at:107"
+$at_failed && at_fn_log_failure
+$at_traceon; }
+
+{ set +x
+printf "%s\n" "$at_srcdir/quiet.at:108: diff expected_error.txt error.txt"
+at_fn_check_prepare_trace "quiet.at:108"
+( $at_check_trace; diff expected_error.txt error.txt
+) >>"$at_stdout" 2>>"$at_stderr" 5>&-
+at_status=$? at_failed=false
+$at_check_filter
+at_fn_diff_devnull "$at_stderr" || at_failed=:
+at_fn_diff_devnull "$at_stdout" || at_failed=:
+at_fn_check_status 0 $at_status "$at_srcdir/quiet.at:108"
+$at_failed && at_fn_log_failure
+$at_traceon; }
+
+
+# whether help display
+{ set +x
+printf "%s\n" "$at_srcdir/quiet.at:111: printf \"      -q, --quiet            control stdout when precompiling\\n\" > expected_output_help.txt"
+at_fn_check_prepare_trace "quiet.at:111"
+( $at_check_trace; printf "      -q, --quiet            control stdout when precompiling\n" > expected_output_help.txt
+) >>"$at_stdout" 2>>"$at_stderr" 5>&-
+at_status=$? at_failed=false
+$at_check_filter
+at_fn_diff_devnull "$at_stderr" || at_failed=:
+at_fn_diff_devnull "$at_stdout" || at_failed=:
+at_fn_check_status 0 $at_status "$at_srcdir/quiet.at:111"
+$at_failed && at_fn_log_failure
+$at_traceon; }
+
+{ set +x
+printf "%s\n" "$at_srcdir/quiet.at:112: \${OCESQL} --help | grep '\\--quiet' > output_help.txt"
+at_fn_check_prepare_notrace 'a ${...} parameter expansion' "quiet.at:112"
+( $at_check_trace; ${OCESQL} --help | grep '\--quiet' > output_help.txt
+) >>"$at_stdout" 2>>"$at_stderr" 5>&-
+at_status=$? at_failed=false
+$at_check_filter
+at_fn_diff_devnull "$at_stderr" || at_failed=:
+at_fn_diff_devnull "$at_stdout" || at_failed=:
+at_fn_check_status 0 $at_status "$at_srcdir/quiet.at:112"
+$at_failed && at_fn_log_failure
+$at_traceon; }
+
+{ set +x
+printf "%s\n" "$at_srcdir/quiet.at:113: diff expected_output_help.txt output_help.txt"
+at_fn_check_prepare_trace "quiet.at:113"
+( $at_check_trace; diff expected_output_help.txt output_help.txt
+) >>"$at_stdout" 2>>"$at_stderr" 5>&-
+at_status=$? at_failed=false
+$at_check_filter
+at_fn_diff_devnull "$at_stderr" || at_failed=:
+at_fn_diff_devnull "$at_stdout" || at_failed=:
+at_fn_check_status 0 $at_status "$at_srcdir/quiet.at:113"
+$at_failed && at_fn_log_failure
+$at_traceon; }
+
+
+  set +x
+  $at_times_p && times >"$at_times_file"
+) 5>&1 2>&1 7>&- | eval $at_tee_pipe
+read at_status <"$at_status_file"
+#AT_STOP_5

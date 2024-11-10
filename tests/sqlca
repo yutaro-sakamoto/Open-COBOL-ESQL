@@ -2068,7 +2068,12 @@ cat >prog.cbl <<'_ATEOF'
            EXEC SQL
                DISCONNECT ALL
            END-EXEC.
-           PERFORM SHOW-STATUS.
+           IF SQLCODE NOT = -220 THEN
+              DISPLAY "DISCONNECT ALL SQLCODE:" SQLCODE
+           END-IF.
+           IF SQLSTATE NOT = "08003" THEN
+              DISPLAY "DISCONNECT ALL SQLSTATE:" SQLSTATE
+           END-IF.
 
            MOVE  "<|DB_NAME|>@<|DB_HOST|>:<|DB_PORT|>"
              TO DBNAME.
@@ -2080,12 +2085,22 @@ cat >prog.cbl <<'_ATEOF'
            EXEC SQL
                CONNECT :USERNAME IDENTIFIED BY :PASSWD USING :DBNAME
            END-EXEC.
-           PERFORM SHOW-STATUS.
+           IF SQLCODE NOT = 0 THEN
+              DISPLAY "CONNECT SQLCODE:" SQLCODE
+           END-IF.
+           IF SQLSTATE NOT = "00000" THEN
+              DISPLAY "CONNECT SQLSTATE:" SQLSTATE
+           END-IF.
 
            EXEC SQL
                DISCONNECT ALL
            END-EXEC.
-           PERFORM SHOW-STATUS.
+           IF SQLCODE NOT = 0 THEN
+              DISPLAY "DISCONNECT ALL SQLCODE:" SQLCODE
+           END-IF.
+           IF SQLSTATE NOT = "00000" THEN
+              DISPLAY "DISCONNECT ALL SQLSTATE:" SQLSTATE
+           END-IF.
 
            MOVE  "invalid"
              TO DBNAME.
@@ -2097,84 +2112,77 @@ cat >prog.cbl <<'_ATEOF'
            EXEC SQL
                CONNECT :USERNAME IDENTIFIED BY :PASSWD USING :DBNAME
            END-EXEC.
-           PERFORM SHOW-STATUS.
+           IF SQLCODE NOT = -402 THEN
+              DISPLAY "CONNECT invalid SQLCODE:" SQLCODE
+           END-IF.
+           IF SQLSTATE NOT = "08001" THEN
+              DISPLAY "CONNECT invalid SQLSTATE:" SQLSTATE
+           END-IF.
 
            EXEC SQL
                DISCONNECT ALL
            END-EXEC.
-           PERFORM SHOW-STATUS.
+           IF SQLCODE NOT = -220 THEN
+              DISPLAY "DISCONNECT ALL SQLCODE:" SQLCODE
+           END-IF.
+           IF SQLSTATE NOT = "08003" THEN
+              DISPLAY "DISCONNECT ALL SQLSTATE:" SQLSTATE
+           END-IF.
 
       *    END
            STOP RUN.
-      ******************************************************************
-       SHOW-STATUS.
-      ******************************************************************
-           DISPLAY SQLCODE.
-           DISPLAY SQLSTATE.
-
 _ATEOF
 
 
 { set +x
-printf "%s\n" "$at_srcdir/connect-disconnect.at:76: ocesql prog.cbl prog.cob > /dev/null"
-at_fn_check_prepare_trace "connect-disconnect.at:76"
+printf "%s\n" "$at_srcdir/connect-disconnect.at:95: ocesql prog.cbl prog.cob > /dev/null"
+at_fn_check_prepare_trace "connect-disconnect.at:95"
 ( $at_check_trace; ocesql prog.cbl prog.cob > /dev/null
 ) >>"$at_stdout" 2>>"$at_stderr" 5>&-
 at_status=$? at_failed=false
 $at_check_filter
 at_fn_diff_devnull "$at_stderr" || at_failed=:
 at_fn_diff_devnull "$at_stdout" || at_failed=:
-at_fn_check_status 0 $at_status "$at_srcdir/connect-disconnect.at:76"
+at_fn_check_status 0 $at_status "$at_srcdir/connect-disconnect.at:95"
 $at_failed && at_fn_log_failure
 $at_traceon; }
 
 { set +x
-printf "%s\n" "$at_srcdir/connect-disconnect.at:77: \${EMBED_DB_INFO} prog.cob"
-at_fn_check_prepare_notrace 'a ${...} parameter expansion' "connect-disconnect.at:77"
+printf "%s\n" "$at_srcdir/connect-disconnect.at:96: \${EMBED_DB_INFO} prog.cob"
+at_fn_check_prepare_notrace 'a ${...} parameter expansion' "connect-disconnect.at:96"
 ( $at_check_trace; ${EMBED_DB_INFO} prog.cob
 ) >>"$at_stdout" 2>>"$at_stderr" 5>&-
 at_status=$? at_failed=false
 $at_check_filter
 at_fn_diff_devnull "$at_stderr" || at_failed=:
 at_fn_diff_devnull "$at_stdout" || at_failed=:
-at_fn_check_status 0 $at_status "$at_srcdir/connect-disconnect.at:77"
+at_fn_check_status 0 $at_status "$at_srcdir/connect-disconnect.at:96"
 $at_failed && at_fn_log_failure
 $at_traceon; }
 
 { set +x
-printf "%s\n" "$at_srcdir/connect-disconnect.at:78: \${COMPILE_MODULE} prog.cob"
-at_fn_check_prepare_notrace 'a ${...} parameter expansion' "connect-disconnect.at:78"
+printf "%s\n" "$at_srcdir/connect-disconnect.at:97: \${COMPILE_MODULE} prog.cob"
+at_fn_check_prepare_notrace 'a ${...} parameter expansion' "connect-disconnect.at:97"
 ( $at_check_trace; ${COMPILE_MODULE} prog.cob
 ) >>"$at_stdout" 2>>"$at_stderr" 5>&-
 at_status=$? at_failed=false
 $at_check_filter
 at_fn_diff_devnull "$at_stderr" || at_failed=:
 at_fn_diff_devnull "$at_stdout" || at_failed=:
-at_fn_check_status 0 $at_status "$at_srcdir/connect-disconnect.at:78"
+at_fn_check_status 0 $at_status "$at_srcdir/connect-disconnect.at:97"
 $at_failed && at_fn_log_failure
 $at_traceon; }
 
 { set +x
-printf "%s\n" "$at_srcdir/connect-disconnect.at:79: \${RUN_MODULE} prog 2> /dev/null"
-at_fn_check_prepare_notrace 'a ${...} parameter expansion' "connect-disconnect.at:79"
+printf "%s\n" "$at_srcdir/connect-disconnect.at:98: \${RUN_MODULE} prog 2> /dev/null"
+at_fn_check_prepare_notrace 'a ${...} parameter expansion' "connect-disconnect.at:98"
 ( $at_check_trace; ${RUN_MODULE} prog 2> /dev/null
 ) >>"$at_stdout" 2>>"$at_stderr" 5>&-
 at_status=$? at_failed=false
 $at_check_filter
 at_fn_diff_devnull "$at_stderr" || at_failed=:
-echo >>"$at_stdout"; printf "%s\n" "-000000220
-08003
-+000000000
-00000
-+000000000
-00000
--000000402
-08001
--000000220
-08003
-" | \
-  $at_diff - "$at_stdout" || at_failed=:
-at_fn_check_status 1 $at_status "$at_srcdir/connect-disconnect.at:79"
+at_fn_diff_devnull "$at_stdout" || at_failed=:
+at_fn_check_status 1 $at_status "$at_srcdir/connect-disconnect.at:98"
 $at_failed && at_fn_log_failure
 $at_traceon; }
 
@@ -2247,32 +2255,62 @@ cat >prog.cbl <<'_ATEOF'
        EXEC SQL
          OPEN C
        END-EXEC.
-       PERFORM SHOW-STATUS.
+       IF SQLCODE NOT = 0 THEN
+         DISPLAY "OPEN SQLCODE:" SQLCODE
+       END-IF.
+       IF SQLSTATE NOT = "00000" THEN
+         DISPLAY "OPEN SQLSTATE:" SQLSTATE
+       END-IF.
 
        EXEC SQL
          OPEN CC
        END-EXEC.
-       PERFORM SHOW-STATUS.
+       IF SQLCODE NOT = -602 THEN
+         DISPLAY "OPEN CC SQLCODE:" SQLCODE
+       END-IF.
+       IF SQLSTATE NOT = "34000" THEN
+         DISPLAY "OPEN CC SQLSTATE:" SQLSTATE
+       END-IF.
 
        EXEC SQL
          FETCH C INTO :DATA-V
        END-EXEC.
-       PERFORM SHOW-STATUS.
+       IF SQLCODE NOT = 0 THEN
+         DISPLAY "FETCH SQLCODE:" SQLCODE
+       END-IF.
+       IF SQLSTATE NOT = "00000" THEN
+         DISPLAY "FETCH SQLSTATE:" SQLSTATE
+       END-IF.
 
        EXEC SQL
          FETCH CC INTO :DATA-V
        END-EXEC.
-       PERFORM SHOW-STATUS.
+       IF SQLCODE NOT = -602 THEN
+         DISPLAY "FETCH CC SQLCODE:" SQLCODE
+       END-IF.
+       IF SQLSTATE NOT = "34000" THEN
+         DISPLAY "FETCH CC SQLSTATE:" SQLSTATE
+       END-IF.
 
        EXEC SQL
          CLOSE C
        END-EXEC.
-       PERFORM SHOW-STATUS.
+       IF SQLCODE NOT = 0 THEN
+         DISPLAY "CLOSE SQLCODE:" SQLCODE
+       END-IF.
+       IF SQLSTATE NOT = "00000" THEN
+         DISPLAY "CLOSE SQLSTATE:" SQLSTATE
+       END-IF.
 
        EXEC SQL
          CLOSE CC
        END-EXEC.
-       PERFORM SHOW-STATUS.
+       IF SQLCODE NOT = -602 THEN
+         DISPLAY "CLOSE CC SQLCODE:" SQLCODE
+       END-IF.
+       IF SQLSTATE NOT = "34000" THEN
+         DISPLAY "CLOSE CC SQLSTATE:" SQLSTATE
+       END-IF.
 
        PERFORM CLEANUP-DB.
 
@@ -2322,78 +2360,58 @@ cat >prog.cbl <<'_ATEOF'
            EXEC SQL
                DISCONNECT ALL
            END-EXEC.
-
-      ******************************************************************
-       SHOW-STATUS.
-      ******************************************************************
-           DISPLAY SQLCODE.
-           DISPLAY SQLSTATE.
-
 _ATEOF
 
 
 { set +x
-printf "%s\n" "$at_srcdir/open-fetch-close.at:140: ocesql prog.cbl prog.cob > /dev/null"
-at_fn_check_prepare_trace "open-fetch-close.at:140"
+printf "%s\n" "$at_srcdir/open-fetch-close.at:163: ocesql prog.cbl prog.cob > /dev/null"
+at_fn_check_prepare_trace "open-fetch-close.at:163"
 ( $at_check_trace; ocesql prog.cbl prog.cob > /dev/null
 ) >>"$at_stdout" 2>>"$at_stderr" 5>&-
 at_status=$? at_failed=false
 $at_check_filter
 at_fn_diff_devnull "$at_stderr" || at_failed=:
 at_fn_diff_devnull "$at_stdout" || at_failed=:
-at_fn_check_status 0 $at_status "$at_srcdir/open-fetch-close.at:140"
+at_fn_check_status 0 $at_status "$at_srcdir/open-fetch-close.at:163"
 $at_failed && at_fn_log_failure
 $at_traceon; }
 
 { set +x
-printf "%s\n" "$at_srcdir/open-fetch-close.at:141: \${EMBED_DB_INFO} prog.cob"
-at_fn_check_prepare_notrace 'a ${...} parameter expansion' "open-fetch-close.at:141"
+printf "%s\n" "$at_srcdir/open-fetch-close.at:164: \${EMBED_DB_INFO} prog.cob"
+at_fn_check_prepare_notrace 'a ${...} parameter expansion' "open-fetch-close.at:164"
 ( $at_check_trace; ${EMBED_DB_INFO} prog.cob
 ) >>"$at_stdout" 2>>"$at_stderr" 5>&-
 at_status=$? at_failed=false
 $at_check_filter
 at_fn_diff_devnull "$at_stderr" || at_failed=:
 at_fn_diff_devnull "$at_stdout" || at_failed=:
-at_fn_check_status 0 $at_status "$at_srcdir/open-fetch-close.at:141"
+at_fn_check_status 0 $at_status "$at_srcdir/open-fetch-close.at:164"
 $at_failed && at_fn_log_failure
 $at_traceon; }
 
 { set +x
-printf "%s\n" "$at_srcdir/open-fetch-close.at:142: \${COMPILE_MODULE} prog.cob"
-at_fn_check_prepare_notrace 'a ${...} parameter expansion' "open-fetch-close.at:142"
+printf "%s\n" "$at_srcdir/open-fetch-close.at:165: \${COMPILE_MODULE} prog.cob"
+at_fn_check_prepare_notrace 'a ${...} parameter expansion' "open-fetch-close.at:165"
 ( $at_check_trace; ${COMPILE_MODULE} prog.cob
 ) >>"$at_stdout" 2>>"$at_stderr" 5>&-
 at_status=$? at_failed=false
 $at_check_filter
 at_fn_diff_devnull "$at_stderr" || at_failed=:
 at_fn_diff_devnull "$at_stdout" || at_failed=:
-at_fn_check_status 0 $at_status "$at_srcdir/open-fetch-close.at:142"
+at_fn_check_status 0 $at_status "$at_srcdir/open-fetch-close.at:165"
 $at_failed && at_fn_log_failure
 $at_traceon; }
 
 { set +x
-printf "%s\n" "$at_srcdir/open-fetch-close.at:143: \${RUN_MODULE} prog 2> /dev/null"
-at_fn_check_prepare_notrace 'a ${...} parameter expansion' "open-fetch-close.at:143"
+printf "%s\n" "$at_srcdir/open-fetch-close.at:166: \${RUN_MODULE} prog 2> /dev/null"
+at_fn_check_prepare_notrace 'a ${...} parameter expansion' "open-fetch-close.at:166"
 ( $at_check_trace; ${RUN_MODULE} prog 2> /dev/null
 ) >>"$at_stdout" 2>>"$at_stderr" 5>&-
 at_status=$? at_failed=false
 $at_check_filter
 at_fn_diff_devnull "$at_stderr" || at_failed=:
-echo >>"$at_stdout"; printf "%s\n" "+000000000
-00000
--000000602
-34000
-+000000000
-00000
--000000602
-34000
-+000000000
-00000
--000000602
-34000
-" | \
-  $at_diff - "$at_stdout" || at_failed=:
-at_fn_check_status 0 $at_status "$at_srcdir/open-fetch-close.at:143"
+at_fn_diff_devnull "$at_stdout" || at_failed=:
+at_fn_check_status 0 $at_status "$at_srcdir/open-fetch-close.at:166"
 $at_failed && at_fn_log_failure
 $at_traceon; }
 

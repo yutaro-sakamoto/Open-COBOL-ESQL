@@ -34,6 +34,8 @@ int lineNUM = 0;
 int japflg = 0;
 int charcount = 0;
 
+extern int flag_quiet;
+
 char *SQcount(int i){
 	char NUM[4];
 	NUM[0] = '0';
@@ -742,78 +744,78 @@ void ppoutputfetch(struct cb_exec_list *list){
  	int occurs_is_parent = 0;
 	int length = 0;
 	int iteration = 0;
+	int is_fetch_occurs = 1;
 
 	memset(buff, 0, sizeof(buff));
 	com_sprintf(buff,sizeof(buff), "OCESQL%5sCALL \"OCESQLStartSQL\"\nOCESQL%5sEND-CALL\n"," "," ");
 	fputs(buff, outfile);
 
 	res_host_list = list->res_host_list;
-
-	iret = gethostvarianttype(res_host_list->hostreference, &type, &digits, &scale);
-	if(iret != 0){
-		printmsg("%s:%d\n", res_host_list->hostreference,iret);
-		memset(buff, 0, sizeof(buff));
-		com_sprintf(buff,sizeof(buff), "E%03d",iret);
-		printerrormsg(res_host_list->hostreference, res_host_list->lineno,
-					  buff);
-		return;
-	}
-
-	if(type == HVARTYPE_GROUP){
-		struct cb_field *parent, *child;
-
-		parent = getfieldbyname(res_host_list->hostreference);
-		if(parent == NULL){
-			printmsg("%s:%d\n", res_host_list->hostreference, ERR_NOTDEF_WORKING);
+	while(res_host_list)
+	{
+		iret = gethostvarianttype(res_host_list->hostreference, &type, &digits, &scale);
+		if(iret != 0){
 			memset(buff, 0, sizeof(buff));
-			com_sprintf(buff,sizeof(buff), "E%03d",ERR_NOTDEF_WORKING);
+			com_sprintf(buff,sizeof(buff), "E%03d",iret);
 			printerrormsg(res_host_list->hostreference, res_host_list->lineno,
-						  buff);
+							buff);
 			return;
 		}
-
-		child = parent->children;
-		if(parent->occurs){
-			iteration = parent->occurs;
-			occurs_is_parent = 1;
-			ppoutputresgroup(child, res_host_list->lineno, iteration);
-			iret = get_host_group_length(child, &length);
-			if(iret != 0){
+		
+		struct cb_field *parent, *child;
+		parent = getfieldbyname(res_host_list->hostreference);
+		if(type == HVARTYPE_GROUP){
+			if(parent == NULL){
+				printmsg("%s:%d\n", res_host_list->hostreference, ERR_NOTDEF_WORKING);
 				memset(buff, 0, sizeof(buff));
-				com_sprintf(buff,sizeof(buff), "E%03d",iret);
-				printerrormsg(res_host_list->hostreference, res_host_list->lineno, buff);
-				return;
-			}
-		} else {
-			iteration = -1;
-			occurs_is_parent = 0;
-
-			iret = get_host_group_table_info(child, &iteration, &length);
-			ppoutputresgroup(child, res_host_list->lineno, iteration);
-			if(iret != 0){
-				memset(buff, 0, sizeof(buff));
-				com_sprintf(buff,sizeof(buff), "E%03d",iret);
-				printerrormsg(res_host_list->hostreference, res_host_list->lineno, buff);
-				return;
-			}
-		}
-	} else {
-		while(res_host_list)
-		{
-			iret = gethostvarianttype(res_host_list->hostreference, &type, &digits, &scale);
-			if(iret != 0){
-				memset(buff, 0, sizeof(buff));
-				com_sprintf(buff,sizeof(buff), "E%03d",iret);
+				com_sprintf(buff,sizeof(buff), "E%03d",ERR_NOTDEF_WORKING);
 				printerrormsg(res_host_list->hostreference, res_host_list->lineno,
-							  buff);
+							buff);
 				return;
 			}
+
+			child = parent->children;
+			if(parent->occurs){
+				if (iteration > 0 && iteration != parent->occurs) {
+					memset(buff, 0, sizeof(buff));
+					com_sprintf(buff,sizeof(buff), "E%03d",iret);
+					printerrormsg(res_host_list->hostreference, res_host_list->lineno, buff);
+				}
+				iteration = parent->occurs;
+				occurs_is_parent = 1;
+				ppoutputresgroup(child, res_host_list->lineno, iteration);
+				iret = get_host_group_length(child, &length);
+				if(iret != 0){
+					memset(buff, 0, sizeof(buff));
+					com_sprintf(buff,sizeof(buff), "E%03d",iret);
+					printerrormsg(res_host_list->hostreference, res_host_list->lineno, buff);
+					return;
+				}
+			} else {
+				iteration = -1;
+				occurs_is_parent = 0;
+				is_fetch_occurs = 0;
+
+				iret = get_host_group_table_info(child, &iteration, &length);
+				ppoutputresgroup(child, res_host_list->lineno, iteration);
+				if(iret != 0){
+					memset(buff, 0, sizeof(buff));
+					com_sprintf(buff,sizeof(buff), "E%03d",iret);
+					printerrormsg(res_host_list->hostreference, res_host_list->lineno, buff);
+					return;
+				}
+			}
+		} else if (parent->occurs){
+			iteration = parent->occurs;
 			ppoutputresparam(res_host_list->hostreference, type, digits, scale,iteration);
-			res_host_list = res_host_list->next;
+		} else {
+			is_fetch_occurs = 0;
+			ppoutputresparam(res_host_list->hostreference, type, digits, scale,iteration);
 		}
+		res_host_list = res_host_list->next;
 	}
 
-	if(iteration){
+	if(is_fetch_occurs && iteration){
 		memset(buff, 0, sizeof(buff));
 		com_sprintf(buff,sizeof(buff), "OCESQL%5sCALL \"OCESQLSetHostTable\" USING\n" ," ");
 		fputs(buff, outfile);
@@ -833,7 +835,6 @@ void ppoutputfetch(struct cb_exec_list *list){
 		memset(buff, 0, sizeof(buff));
 		com_sprintf(buff,sizeof(buff), "OCESQL%5sEND-CALL\n", " ");
 		fputs(buff, outfile);
-
 		memset(buff, 0, sizeof(buff));
 		com_sprintf(buff,sizeof(buff), "OCESQL%5sCALL \"OCESQLCursorFetchOccurs\" USING\n" ," ");
 		fputs(buff, outfile);
@@ -1683,7 +1684,6 @@ void ppbuff(struct cb_exec_list *list){
 				}
 
 				child = parent->children;
-
 				if(parent->occurs){
 					iteration = parent->occurs;
 					occurs_is_parent = 1;
@@ -2216,7 +2216,6 @@ int get_host_group_length(struct cb_field *field, int *length){
 
 int get_host_group_table_info(struct cb_field *field, int *iteration, int *length){
 	if(field == NULL) return 0;
-
 	if(field->occurs){
 		if(*iteration == -1 || field->occurs < *iteration){
 			*iteration = field->occurs;
@@ -2322,5 +2321,7 @@ FILE* fopen_or_die(char *filename, const char *mode){
 }
 
 void _printlog(char *msg){
-	printmsg("%s\n", msg);
+	if (!flag_quiet) {
+		printmsg("%s\n", msg);
+	}
 }

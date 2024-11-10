@@ -30,6 +30,7 @@ char *include_path = NULL;
 int currenthostno = 0;
 extern int hostlineno;
 
+int flag_quiet = 0;
 int flag_external = 0;
 
 extern struct cb_hostreference_list *host_reference_list;
@@ -358,9 +359,9 @@ cb_get_env(char *filename, int num)
 
 void version(void){
 	printf("Open Cobol ESQL (Ocesql)\n");
-	printf("Version 1.3.0b\n");
+	printf("Version 1.4.0\n");
 	printf("\n");
-	printf("March 24, 2022\n");
+	printf("October 4, 2024\n");
 	printf("\n");
 	printf("Tokyo System House Co., Ltd. <opencobol@tsh-world.co.jp>\n");
 }
@@ -372,6 +373,7 @@ void print_usage(void){
 	printf("\n");
 	printf("options\n");
 	printf("      --inc=include_dir      set INCLUDE FILE directory path\n");
+	printf("      -q, --quiet            control stdout when precompiling\n");
 	printf("\n");
 	printf("usage\n");
 	printf("  -V, --version              show version and exit\n");
@@ -399,7 +401,7 @@ int main (int argc, char *argv[])
 	int optfile_idx = 1;
 
 	int has_error = 0;
-	
+
 	/* parse options for ocesql */
 	/* FIXME: errors should go to to stderr, debug/log output to stdout */
 	for (optind=1; optind<argc; optind++){
@@ -427,6 +429,8 @@ int main (int argc, char *argv[])
 			} else if(strcmp("help", opthead) == 0){
 				print_usage();
 				exit (0);
+			} else if(strcmp("quiet", opthead) == 0){
+				flag_quiet = 1;
 			} else {
 				printf("invalid option: --%s\n", opthead);
 				has_error = 1;
@@ -435,19 +439,22 @@ int main (int argc, char *argv[])
 			/* short option */
 			int shoptind;
 			const int shoptind_max = strlen (argval);
-			for (shoptind = sizeof(char) * preoptlen; shoptind <= shoptind_max; shoptind++) {
+			for (shoptind = sizeof(char) * preoptlen; shoptind < shoptind_max; shoptind++) {
 				char shopt = argval[shoptind];
 				switch (shopt) {
-				case 'V':
-					version();
-					exit (0);
-				case 'h':
-					print_usage();
-					exit (0);
-				default:
-					printf("invalid option: -%c\n", shopt);
-					has_error = 1;
-					break;
+					case 'V':
+						version();
+						exit (0);
+					case 'h':
+						print_usage();
+						exit (0);
+					case 'q':
+						flag_quiet = 1;
+						break;
+					default:
+						printf("invalid option: -%c\n", shopt);
+						has_error = 1;
+						break;
 				}
 			}
 		} else {
@@ -503,10 +510,12 @@ int main (int argc, char *argv[])
 	}
 	openerrorfile(errorfilename);
 	/* TODO: only output in verbose mode, see #101 */
-	printmsg("precompile start: %s\n",transfile.source);
-	printmsg("=======================================================\n");
-	printmsg("              LIST OF CALLED DB Library API            \n");
-	printmsg("=======================================================\n");
+	if (!flag_quiet) {
+		printmsg("precompile start: %s\n",transfile.source);
+		printmsg("=======================================================\n");
+		printmsg("              LIST OF CALLED DB Library API            \n");
+		printmsg("=======================================================\n");
+	}
 
 	processid = com_getpid();
 
@@ -528,7 +537,10 @@ int main (int argc, char *argv[])
 	}
 
 	iret = translate(&transfile);
-	printmsg("=======================================================\n");
+
+	if (!flag_quiet) {
+		printmsg("=======================================================\n");
+	}
 
 	free(filenameID);
 
