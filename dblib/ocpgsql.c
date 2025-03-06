@@ -54,11 +54,6 @@ OCDB_PGConnect(char *conninfo, int autocommit, char *cencoding){
 
 	PQsetClientEncoding(conn, cencoding);
 
-	if(autocommit == OCDB_AUTOCOMMIT_ON){
-		res = PQexec(conn, "SET AUTOCOMMIT TO ON");
-	} else {
-		res = PQexec(conn, "SET AUTOCOMMIT TO OFF");
-	}
 	if(res != NULL){
 		PQclear(res);
 	}
